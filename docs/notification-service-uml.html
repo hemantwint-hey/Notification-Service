@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification Service UML</title>
+<style>
+  :root {
+    --bg: #f6f6f3;
+    --surface: #ffffff;
+    --surface-2: #f0f1ee;
+    --text: #1c222c;
+    --muted: #5b6573;
+    --border: #dfe1dc;
+    --accent: #2f6fde;
+    --code-bg: #f3f4f1;
+    --strategy: #2f6fde;   --strategy-bg: #e3edff;
+    --observer: #1f8f4e;   --observer-bg: #dcf4e4;
+    --decorator: #7446d6;  --decorator-bg: #efe6ff;
+    --core: #b8740a;       --core-bg: #fff0d4;
+    --persistence: #5b6778;--persistence-bg: #eceff3;
+    --support: #c9412f;    --support-bg: #ffe5e1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13161b;
+      --surface: #1b1f26;
+      --surface-2: #222731;
+      --text: #e6eaf0;
+      --muted: #9aa4b2;
+      --border: #2e3440;
+      --accent: #79a6ff;
+      --code-bg: #20252e;
+      --strategy: #79a6ff;   --strategy-bg: #17284a;
+      --observer: #4fcf85;   --observer-bg: #123524;
+      --decorator: #b08cff;  --decorator-bg: #2a1d4a;
+      --core: #f0b54a;       --core-bg: #3a2a0d;
+      --persistence: #9aa6b8;--persistence-bg: #232a33;
+      --support: #ff8a78;    --support-bg: #3d1c18;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+  header h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  header p { color: var(--muted); margin: 0; max-width: 760px; }
+  nav.toc { margin: 24px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  nav.toc a {
+    font-size: 13px; text-decoration: none; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+  section { margin-top: 56px; }
+  h2 { font-size: 22px; margin: 0 0 6px; line-height: 1.3; }
+  h2 .num { color: var(--muted); font-weight: 500; margin-right: 6px; }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 16px; max-width: 820px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .diagram { overflow-x: auto; padding: 12px; position: relative; }
+  .diagram svg { display: block; margin: 0 auto; }
+  .diagram.fit svg { max-width: 100% !important; height: auto; }
+  .diagram-toolbar { display: flex; justify-content: flex-end; margin: -4px 0 6px; position: sticky; left: 0; }
+  .zoom-btn {
+    font: 12px/1 system-ui, sans-serif; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  }
+  .zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .diagram-fallback {
+    white-space: pre-wrap; font: 12px/1.5 ui-monospace, Consolas, monospace;
+    color: var(--muted); margin: 0;
+  }
+  .pattern-q { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin: 0 0 14px; }
+  .tag { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .tag.strategy { color: var(--strategy); background: var(--strategy-bg); }
+  .tag.observer { color: var(--observer); background: var(--observer-bg); }
+  .tag.decorator { color: var(--decorator); background: var(--decorator-bg); }
+  .tag.core { color: var(--core); background: var(--core-bg); }
+  .tag.persistence { color: var(--persistence); background: var(--persistence-bg); }
+  .tag.support { color: var(--support); background: var(--support-bg); }
+  .question { font-size: 17px; font-weight: 600; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .note { border-left: 3px solid var(--accent); background: var(--surface); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-top: 16px; }
+  .note strong { display: block; margin-bottom: 2px; }
+  .note.warn { border-left-color: var(--support); }
+  ul.tight { margin: 6px 0 0; padding-left: 20px; }
+  ul.tight li { margin: 2px 0; }
+  code, pre.code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre.code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; margin: 0; line-height: 1.55;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+
+  .legend-row { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .legend-row:last-child { border-bottom: 0; }
+  .legend-row svg { color: var(--text); }
+  .legend-row .meaning strong { display: block; }
+  .legend-row .meaning span { color: var(--muted); font-size: 14px; }
+
+  .onion { font-size: 14px; }
+  .layer {
+    border: 2px solid var(--decorator); border-radius: 12px; padding: 12px 14px 14px;
+    background: var(--decorator-bg);
+  }
+  .layer .layer { margin-top: 10px; background: var(--surface); }
+  .layer .layer .layer { background: var(--surface-2); border-style: dashed; }
+  .layer-name { font-weight: 600; }
+  .layer-role { color: var(--muted); font-size: 13px; font-family: ui-monospace, Consolas, monospace; }
+  .message-preview {
+    font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 0;
+  }
+  .message-preview .from-timestamp { color: var(--decorator); }
+  .message-preview .from-signature { color: var(--strategy); }
+
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: step; position: relative; padding: 6px 0 6px 38px; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 6px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 13px; font-weight: 600; display: grid; place-items: center;
+  }
+  footer { margin-top: 64px; color: var(--muted); font-size: 13px; }
+
+  @media print {
+    nav.toc { display: none; }
+    .diagram { overflow: visible; }
+    .diagram svg { max-width: 100% !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Notification Service: UML &amp; Design Guide</h1>
+  <p>How every class in <code>org.example.notificationservice</code> fits together. Each diagram answers one question.
+  Read them top to bottom and you'll know what to write in each empty class.</p>
+  <nav class="toc" aria-label="Contents">
+    <a href="#legend">0 · Reading UML</a>
+    <a href="#big-picture">1 · Big picture</a>
+    <a href="#flow">2 · Request flow</a>
+    <a href="#strategy">3 · Strategy</a>
+    <a href="#observer">4 · Observer</a>
+    <a href="#decorator">5 · Decorator</a>
+    <a href="#core">6 · Core classes</a>
+    <a href="#persistence">7 · Persistence</a>
+    <a href="#lifecycle">8 · Status lifecycle</a>
+    <a href="#errors">9 · Errors</a>
+    <a href="#wiring">10 · Wiring checklist</a>
+    <a href="#open">11 · Open decisions</a>
+  </nav>
+</header>
+
+<section id="legend">
+  <h2><span class="num">0</span>How to read the diagrams</h2>
+  <p class="lead">UML uses the line style and the arrow head to say what kind of relationship two classes have.
+  These five are all you need for this project.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="legend-row">
+        <svg width="180" height="24" viewBox="0 0 180 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <line x1="6" y1="12" x2="152" y2="12" stroke-dasharray="6 4"/>
+          <polygon points="152,4 170,12 152,20" fill="var(--surface)"/>
+        </svg>
+        <div class="meaning"><strong>Implements (realization)</strong>
+          <span>Dashed line, hollow triangle points at the <b>interface</b>.<br><code>EmailNotificationChannel implements NotificationChannel</code></span></div>
+      </div>
+      <div class="legend-row">
+        <svg width="180" height="24" viewBox="0 0 180 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <line x1="6" y1="12" x2="152" y2="12"/>
+          <polygon points="152,4 170,12 152,20" fill="var(--surface)"/>
+        </svg>
+        <div class="meaning"><strong>Extends (inheritance)</strong>
+          <span>Solid line, hollow triangle points at the <b>parent class</b>.<br><code>TimestampNotificationDecorator extends NotificationDecorator</code></span></div>
+      </div>
+      <div class="legend-row">
+        <svg width="180" height="24" viewBox="0 0 180 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <polygon points="6,12 20,5 34,12 20,19" fill="var(--surface)"/>
+          <line x1="34" y1="12" x2="172" y2="12"/>
+        </svg>
+        <div class="meaning"><strong>Has / holds (aggregation)</strong>
+          <span>Hollow diamond sits on the <b>owner</b>. The owner keeps the other object(s) in a field.<br><code>NotificationEventPublisher</code> holds a list of listeners.</span></div>
+      </div>
+      <div class="legend-row">
+        <svg width="180" height="24" viewBox="0 0 180 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <line x1="6" y1="12" x2="170" y2="12"/>
+          <polyline points="156,5 170,12 156,19"/>
+        </svg>
+        <div class="meaning"><strong>Uses as a field (association)</strong>
+          <span>Solid line, open arrow. Usually a constructor-injected dependency.<br><code>NotificationService → NotificationEngine</code></span></div>
+      </div>
+      <div class="legend-row">
+        <svg width="180" height="24" viewBox="0 0 180 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <line x1="6" y1="12" x2="170" y2="12" stroke-dasharray="6 4"/>
+          <polyline points="156,5 170,12 156,19"/>
+        </svg>
+        <div class="meaning"><strong>Uses temporarily (dependency)</strong>
+          <span>Dashed line, open arrow. A method parameter, return value, or something it creates.<br><code>NotificationService ⇢ Notification</code> (creates it)</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Inside a class box</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Symbol</th><th>Meaning</th></tr>
+          <tr><td><code>+</code></td><td>public</td></tr>
+          <tr><td><code>-</code></td><td>private</td></tr>
+          <tr><td><code>#</code></td><td>protected (subclasses can use it)</td></tr>
+          <tr><td><u>underlined</u></td><td>static method</td></tr>
+          <tr><td><code>&laquo;interface&raquo;</code></td><td>interface (no state, only a contract)</td></tr>
+          <tr><td><code>&laquo;abstract&raquo;</code></td><td>abstract class (can't do <code>new</code>)</td></tr>
+          <tr><td><code>&laquo;enumeration&raquo;</code></td><td>Java enum</td></tr>
+          <tr><td><code>List&lt;Notification&gt;</code></td><td>generic type</td></tr>
+        </table>
+      </div>
+      <h3>Colours = design pattern</h3>
+      <p style="margin:0; display:flex; flex-wrap:wrap; gap:6px">
+        <span class="tag strategy">Strategy</span>
+        <span class="tag observer">Observer</span>
+        <span class="tag decorator">Decorator</span>
+        <span class="tag core">Orchestration</span>
+        <span class="tag support">Retry &amp; preferences</span>
+        <span class="tag persistence">Web &amp; persistence</span>
+      </p>
+      <p class="lead" style="margin-top:10px">Method signatures shown are a <b>suggested</b> design. Rename freely, but keep the relationships.</p>
+    </div>
+  </div>
+</section>
+
+<section id="big-picture">
+  <h2><span class="num">1</span>Big picture</h2>
+  <p class="lead">Which package talks to which. The controller only talks to the service. The service <b>orchestrates</b>,
+  the engine <b>delivers</b>, and the three patterns each sit in their own corner.</p>
+  <div class="card diagram" data-diagram="overview"></div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="note"><strong>Strategy: <em>which implementation?</em></strong>Engine asks the resolver for the channel that matches the type. No <code>if/else</code>.</div>
+    <div class="note" style="border-left-color:var(--observer)"><strong>Observer: <em>who needs to know?</em></strong>Service and engine announce events; audit, logging and metrics react independently.</div>
+    <div class="note" style="border-left-color:var(--decorator)"><strong>Decorator: <em>add behaviour by wrapping</em></strong>Timestamp and signature are layered onto the message text without subclass explosions.</div>
+  </div>
+</section>
+
+<section id="flow">
+  <h2><span class="num">2</span>Request-to-delivery flow</h2>
+  <p class="lead">What happens, in order, when the banking system calls <code>POST /api/v1/notifications</code>.
+  <code>alt</code> boxes are if/else branches, <code>loop</code> is the retry loop. Words in <code>[BRACKETS]</code> are the status saved at that step.</p>
+  <div class="card diagram" data-diagram="sequence" data-start="actual"></div>
+</section>
+
+<section id="strategy">
+  <h2><span class="num">3</span>Strategy pattern: delivery channels</h2>
+  <div class="pattern-q"><span class="tag strategy">Strategy</span><span class="question">"I need to send this. Which implementation should do it?"</span></div>
+  <div class="card diagram" data-diagram="strategy"></div>
+  <div class="grid-2" style="margin-top:16px">
+    <div class="note"><strong>Why the resolver removes the switch</strong>
+      Spring injects <em>every</em> <code>NotificationChannel</code> bean as a <code>List</code>. The resolver loops once in its constructor and builds
+      <code>Map&lt;NotificationType, NotificationChannel&gt;</code> using each channel's <code>supportedType()</code>. After that, <code>resolve(type)</code> is just <code>map.get(type)</code>.
+    </div>
+    <div class="note"><strong>Adding WhatsApp later</strong>
+      <ul class="tight">
+        <li>Add <code>WHATSAPP</code> to <code>NotificationType</code></li>
+        <li>Create <code>WhatsAppNotificationChannel implements NotificationChannel</code> with <code>@Component</code></li>
+        <li>Engine, resolver and other channels: <b>zero changes</b> (Open/Closed principle)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="observer">
+  <h2><span class="num">4</span>Observer pattern: notification events</h2>
+  <div class="pattern-q"><span class="tag observer">Observer</span><span class="question">"Something happened. Who needs to know?"</span></div>
+  <div class="card diagram" data-diagram="observer"></div>
+  <h3>At runtime: one publish, every listener called</h3>
+  <div class="card diagram" data-diagram="observerRuntime"></div>
+  <div class="grid-3" style="margin-top:16px">
+    <div class="note"><strong>Send a snapshot, not the Notification</strong><code>NotificationEvent</code> copies the fields listeners need. A listener can't accidentally change the real notification's status.</div>
+    <div class="note warn"><strong>Isolate listener failures</strong>Wrap each <code>onEvent</code> call in try/catch inside <code>publish()</code>. A broken metrics listener must never stop an SMS.</div>
+    <div class="note warn"><strong>Never log the content</strong>The body can contain an OTP or balance. The event deliberately has no <code>title</code>/<code>content</code> field.</div>
+  </div>
+</section>
+
+<section id="decorator">
+  <h2><span class="num">5</span>Decorator pattern: message enrichment</h2>
+  <div class="pattern-q"><span class="tag decorator">Decorator</span><span class="question">"I have an object. How do I add behaviour without changing its class?"</span></div>
+  <div class="card diagram" data-diagram="decorator"></div>
+  <p class="lead" style="margin-top:12px">The two lines between <code>NotificationDecorator</code> and <code>NotificationContent</code> are the heart of the pattern:
+  a decorator <b>is</b> a <code>NotificationContent</code> (triangle) and <b>has</b> a <code>NotificationContent</code> inside it (diamond). That's why decorators can wrap each other.</p>
+
+  <h3>At runtime: layers of an onion</h3>
+  <div class="grid-2">
+    <div class="card onion">
+      <div class="layer">
+        <div class="layer-name">SignatureNotificationDecorator</div>
+        <div class="layer-role">getBody() = inner.getBody() + signature</div>
+        <div class="layer">
+          <div class="layer-name">TimestampNotificationDecorator</div>
+          <div class="layer-role">getBody() = inner.getBody() + time line</div>
+          <div class="layer">
+            <div class="layer-name">SimpleNotification</div>
+            <div class="layer-role">getBody() = original body (call stops here)</div>
+          </div>
+        </div>
+      </div>
+      <p class="lead" style="margin:12px 0 0">Calling <code>getBody()</code> on the outside travels <b>inward</b> to <code>SimpleNotification</code>,
+      then each layer appends its part on the way <b>back out</b>.</p>
+    </div>
+    <div>
+<pre class="code">NotificationContent content =
+        new SimpleNotification(title, body);
+
+content = new TimestampNotificationDecorator(content, now);
+content = new SignatureNotificationDecorator(content, signature);
+
+String finalBody = content.getBody();</pre>
+      <p style="margin:14px 0 6px; font-weight:600">Result of <code>content.getBody()</code></p>
+<pre class="message-preview">INR 5,000.00 debited from A/c XX1234.
+
+<span class="from-timestamp">Time: 16 Sep 2026, 10:15:32 UTC</span>
+
+<span class="from-signature">- Enterprise Digital Bank. Never share your OTP.</span></pre>
+      <div class="note" style="border-left-color:var(--decorator)"><strong>Decorate the text, not the entity</strong>
+        Only <code>NotificationContent</code> (title + body) gets wrapped. Save the <em>final</em> string into <code>Notification.content</code>. JPA can't persist a chain of wrapper objects.</div>
+    </div>
+  </div>
+</section>
+
+<section id="core">
+  <h2><span class="num">6</span>Core classes: service, engine, domain, retry, preferences</h2>
+  <p class="lead">The orchestration layer. Note the service and engine depend on <b>interfaces</b>
+  (<code>NotificationRepository</code>, <code>NotificationPreferenceService</code>, <code>RetryPolicy</code>), never on the concrete classes.</p>
+  <div class="card diagram" data-diagram="core" data-start="actual"></div>
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card">
+      <h3 style="margin-top:0"><span class="tag core">NotificationService</span> does</h3>
+      <ol class="steps">
+        <li>Validate the <code>NotificationRequest</code></li>
+        <li>If <code>idempotencyKey</code> was used before → return that notification</li>
+        <li>Build the text with the decorators</li>
+        <li><code>Notification.create(...)</code> → save <code>[CREATED]</code> → publish event</li>
+        <li>Check preferences (skipped for <code>CRITICAL</code>) → <code>[CANCELLED]</code> or <code>[QUEUED]</code></li>
+        <li>Hand over to <code>engine.deliver(notification)</code></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0"><span class="tag core">NotificationEngine</span> does</h3>
+      <ol class="steps">
+        <li><code>resolver.resolve(type)</code> to get the channel</li>
+        <li><code>[PROCESSING]</code> → <code>channel.send(notification)</code></li>
+        <li>Success → <code>[SENT]</code> + publish</li>
+        <li>Failure → ask <code>RetryPolicy</code>: retryable <em>and</em> attempts left?</li>
+        <li>Yes → <code>[RETRYING]</code>, wait <code>delayAfterAttempt(n)</code>, go to step 2</li>
+        <li>No → <code>[FAILED]</code> + publish</li>
+      </ol>
+    </div>
+  </div>
+  <div class="note" style="border-left-color:var(--support)"><strong>Exponential backoff in numbers</strong>
+    With <code>initialDelay = 500ms</code>, <code>multiplier = 2</code>, <code>maxDelay = 5s</code>, <code>maxAttempts = 3</code>:
+    attempt 1 fails → wait 500ms → attempt 2 fails → wait 1s → attempt 3 fails → <b>FAILED</b>.
+    Formula: <code>min(initialDelay × multiplier<sup>attempt-1</sup>, maxDelay)</code>.
+  </div>
+</section>
+
+<section id="persistence">
+  <h2><span class="num">7</span>Persistence: keeping JPA out of the logic</h2>
+  <p class="lead">Service and engine only see <code>NotificationRepository</code> and the plain <code>Notification</code> domain class.
+  Everything JPA (<code>@Entity</code>, Spring Data) lives behind <code>JpaNotificationRepository</code>, which converts between the two.</p>
+  <div class="card diagram" data-diagram="persistence"></div>
+  <div class="grid-2" style="margin-top:16px">
+    <div class="note"><strong>Why two "Notification" classes?</strong>
+      <code>Notification</code> (domain) has behaviour like <code>transitionTo()</code> and no JPA annotations.
+      <code>NotificationEntity</code> is just the table shape. Swap MySQL for Mongo later and only the <code>repository.jpa</code> package changes.</div>
+    <div class="note warn"><strong>Idempotency needs the database</strong>
+      Two identical requests at the same instant can both pass <code>findByIdempotencyKey()</code>. Put a <b>unique constraint</b> on
+      <code>idempotency_key</code>; when the insert fails, throw <code>DuplicateIdempotencyKeyException</code> and let the service return the existing row.</div>
+  </div>
+</section>
+
+<section id="lifecycle">
+  <h2><span class="num">8</span>Status lifecycle</h2>
+  <p class="lead">Every legal move of <code>NotificationStatus</code>. Anything not drawn here is illegal. <code>canTransitionTo()</code> should reject it,
+  and <code>Notification.transitionTo()</code> should throw.</p>
+  <div class="card diagram" data-diagram="lifecycle"></div>
+  <div class="card" style="margin-top:16px">
+    <div class="table-wrap">
+      <table>
+        <tr><th>Status</th><th>Set by</th><th>When</th></tr>
+        <tr><td><code>CREATED</code></td><td><span class="tag core">Service</span></td><td>Right after <code>Notification.create()</code>, first save</td></tr>
+        <tr><td><code>CANCELLED</code></td><td><span class="tag core">Service</span></td><td>User disabled that channel and priority isn't <code>CRITICAL</code></td></tr>
+        <tr><td><code>QUEUED</code></td><td><span class="tag core">Service</span></td><td>Allowed to be delivered, about to call the engine</td></tr>
+        <tr><td><code>PROCESSING</code></td><td><span class="tag core">Engine</span></td><td>Just before every <code>channel.send()</code> attempt</td></tr>
+        <tr><td><code>RETRYING</code></td><td><span class="tag core">Engine</span></td><td>Attempt failed, retry policy says try again</td></tr>
+        <tr><td><code>SENT</code></td><td><span class="tag core">Engine</span></td><td><code>channel.send()</code> returned without exception</td></tr>
+        <tr><td><code>FAILED</code></td><td><span class="tag core">Engine</span></td><td>Permanent failure, attempts used up, or no channel for the type</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="errors">
+  <h2><span class="num">9</span>Exceptions: who throws, who catches</h2>
+  <p class="lead">Only two exceptions ever reach the API client. The other three are handled inside the service and engine.</p>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <tr><th>Exception</th><th>Thrown by</th><th>Caught by → result</th></tr>
+        <tr><td><code>InvalidNotificationRequestException</code></td><td>NotificationService (validation)</td><td><code>GlobalExceptionHandler</code> → <b>400 Bad Request</b></td></tr>
+        <tr><td><code>NotificationNotFoundException</code></td><td>NotificationService.getById, repository.updateStatus</td><td><code>GlobalExceptionHandler</code> → <b>404 Not Found</b></td></tr>
+        <tr><td><code>DuplicateIdempotencyKeyException</code></td><td>JpaNotificationRepository.save (unique constraint)</td><td>NotificationService → returns the existing notification</td></tr>
+        <tr><td><code>NotificationDeliveryException</code></td><td>Any channel's <code>send()</code></td><td>NotificationEngine → <code>RETRYING</code> or <code>FAILED</code> (uses <code>isRetryable()</code>)</td></tr>
+        <tr><td><code>UnsupportedNotificationChannelException</code></td><td>NotificationChannelResolver.resolve</td><td>NotificationEngine → <code>FAILED</code></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="wiring">
+  <h2><span class="num">10</span>Wiring checklist</h2>
+  <p class="lead">The empty classes in your project don't have these declarations yet. Add them first, before any logic.</p>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <tr><th>Class</th><th>Declaration to write</th><th>Spring annotation</th><th>Package</th></tr>
+        <tr><td>Email / Sms / Push / InApp NotificationChannel</td><td><code>implements NotificationChannel</code></td><td><code>@Component</code></td><td>strategy</td></tr>
+        <tr><td>NotificationChannelResolver</td><td>field <code>Map&lt;NotificationType, NotificationChannel&gt;</code></td><td><code>@Component</code></td><td>factory</td></tr>
+        <tr><td>Audit / Logging / Metrics Listener</td><td><code>implements NotificationEventListener</code></td><td><code>@Component</code></td><td>observer</td></tr>
+        <tr><td>NotificationEventPublisher</td><td>field <code>List&lt;NotificationEventListener&gt;</code></td><td><code>@Component</code></td><td>observer</td></tr>
+        <tr><td>NotificationEvent</td><td>immutable. Could be a <code>record</code></td><td>none</td><td>observer</td></tr>
+        <tr><td>SimpleNotification</td><td><code>implements NotificationContent</code></td><td>none (created with <code>new</code>)</td><td>decorator</td></tr>
+        <tr><td>NotificationDecorator</td><td><code>abstract class … implements NotificationContent</code> + field <code>NotificationContent wrapped</code></td><td>none</td><td>decorator</td></tr>
+        <tr><td>Timestamp / Signature Decorator</td><td><code>extends NotificationDecorator</code></td><td>none</td><td>decorator</td></tr>
+        <tr><td>ExponentialBackoffRetryPolicy</td><td><code>implements RetryPolicy</code></td><td>created as <code>@Bean</code> in NotificationConfig</td><td>retry</td></tr>
+        <tr><td>InMemoryNotificationPreferenceService</td><td><code>implements NotificationPreferenceService</code></td><td><code>@Service</code></td><td>preference</td></tr>
+        <tr><td>NotificationService</td><td>change <code>interface</code> → <code>class</code></td><td><code>@Service</code></td><td>service</td></tr>
+        <tr><td>NotificationEngine</td><td>plain class</td><td><code>@Component</code></td><td>engine</td></tr>
+        <tr><td>JpaNotificationRepository</td><td><code>implements NotificationRepository</code></td><td><code>@Repository</code></td><td>repository.jpa</td></tr>
+        <tr><td>SpringDataNotificationRepository</td><td><code>extends JpaRepository&lt;NotificationEntity, String&gt;</code></td><td>none (Spring Data generates it)</td><td>repository.jpa</td></tr>
+        <tr><td>NotificationEntity</td><td>fields + <code>@Id</code>, unique <code>idempotencyKey</code></td><td><code>@Entity</code> <code>@Table</code></td><td>entity</td></tr>
+        <tr><td>All 5 custom exceptions</td><td><code>extends RuntimeException</code></td><td>none</td><td>exception</td></tr>
+        <tr><td>GlobalExceptionHandler</td><td>methods with <code>@ExceptionHandler</code></td><td><code>@RestControllerAdvice</code></td><td>exception</td></tr>
+        <tr><td>NotificationController</td><td>field <code>NotificationService</code></td><td><code>@RestController</code></td><td>controller</td></tr>
+        <tr><td>NotificationConfig</td><td><code>@Bean RetryPolicy</code>, <code>@Bean Clock</code></td><td><code>@Configuration</code></td><td>config</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>Suggested build order (each step can be unit-tested alone)</h3>
+  <div class="card">
+    <ol class="steps">
+      <li>Enums → <code>Notification</code> domain + <code>transitionTo()</code></li>
+      <li>Decorators → test with <code>NotificationDecoratorTest</code></li>
+      <li><code>RetryPolicy</code> + <code>ExponentialBackoffRetryPolicy</code> → <code>ExponentialBackoffRetryPolicyTest</code></li>
+      <li>Channels + <code>NotificationChannelResolver</code> → <code>NotificationChannelResolverTest</code></li>
+      <li>Observer (event, publisher, 3 listeners) → <code>NotificationEventPublisherTest</code></li>
+      <li><code>NotificationEngine</code> → <code>NotificationEngineTest</code> (mock the repository)</li>
+      <li>Preferences + <code>NotificationService</code> → <code>NotificationServiceTest</code></li>
+      <li>Entity + JPA repository → <code>JpaNotificationRepositoryTest</code></li>
+      <li>Controller + <code>GlobalExceptionHandler</code> → try it with Postman</li>
+    </ol>
+  </div>
+</section>
+
+<section id="open">
+  <h2><span class="num">11</span>Open decisions</h2>
+  <p class="lead">Not drawn above because you haven't chosen yet. Both change the entity, so decide before step 8.</p>
+  <div class="grid-2">
+    <div class="note warn"><strong>Where do email address and phone number come from?</strong>
+      <code>Notification</code> only has <code>userId</code>. Either the request carries the recipient, or add a
+      <code>RecipientResolver</code> interface that the channels call to look up contact details by <code>userId</code>.</div>
+    <div class="note warn"><strong>One channel or many per request?</strong>
+      A money transfer often goes out as SMS + email + push. Today that's 3 requests with 3 idempotency keys.
+      The alternative is <code>Set&lt;NotificationType&gt;</code> in the request, which produces one <code>Notification</code> per channel.</div>
+  </div>
+</section>
+
+<footer>
+  Diagrams are rendered with Mermaid (loaded from a CDN), so opening this file needs an internet connection.
+  To make a PDF: open in Chrome or Edge → <b>Ctrl + P</b> → <b>Save as PDF</b>.
+</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(function () {
+  const PALETTES = {
+    light: {
+      text: "#172033",
+      strategy: ["#e3edff", "#2f6fde"],
+      observer: ["#dcf4e4", "#1f8f4e"],
+      decorator: ["#efe6ff", "#7446d6"],
+      core: ["#fff0d4", "#b8740a"],
+      support: ["#ffe5e1", "#c9412f"],
+      persistence: ["#eceff3", "#5b6778"]
+    },
+    dark: {
+      text: "#e8edf5",
+      strategy: ["#17284a", "#79a6ff"],
+      observer: ["#123524", "#4fcf85"],
+      decorator: ["#2a1d4a", "#b08cff"],
+      core: ["#3a2a0d", "#f0b54a"],
+      support: ["#3d1c18", "#ff8a78"],
+      persistence: ["#232a33", "#9aa6b8"]
+    }
+  };
+
+  // classDiagram: one "style" line per class
+  function paint(p, kind, names) {
+    const fill = p[kind][0], stroke = p[kind][1];
+    return names.split(",").map(function (n) {
+      return "style " + n.trim() + " fill:" + fill + ",stroke:" + stroke + ",color:" + p.text + ",stroke-width:1.5px";
+    }).join("\n");
+  }
+
+  // flowchart / stateDiagram: named classDefs
+  function classDefs(p) {
+    return ["strategy", "observer", "decorator", "core", "support", "persistence"].map(function (kind) {
+      return "classDef " + kind + " fill:" + p[kind][0] + ",stroke:" + p[kind][1] + ",color:" + p.text + ",stroke-width:1.5px";
+    }).join("\n");
+  }
+
+  const DIAGRAMS = {
+    overview: p => `
+flowchart TB
+  client(["Banking system / API client"])
+  ctrl["<b>NotificationController</b><br/><i>controller</i>"]
+  geh["<b>GlobalExceptionHandler</b><br/><i>exception</i>"]
+  svc["<b>NotificationService</b><br/><i>service: orchestrates</i>"]
+  content["<b>Decorators</b><br/>Signature wraps Timestamp<br/>wraps SimpleNotification<br/><i>decorator</i>"]
+  pref["<b>NotificationPreferenceService</b><br/><i>preference</i>"]
+  engine["<b>NotificationEngine</b><br/><i>engine: delivers</i>"]
+  retry["<b>RetryPolicy</b><br/><i>retry</i>"]
+  resolver["<b>NotificationChannelResolver</b><br/><i>factory</i>"]
+  email["Email<br/>Channel"]
+  sms["Sms<br/>Channel"]
+  push["Push<br/>Channel"]
+  inapp["InApp<br/>Channel"]
+  pub["<b>NotificationEventPublisher</b><br/><i>observer</i>"]
+  audit["Audit<br/>Listener"]
+  logl["Logging<br/>Listener"]
+  metrics["Metrics<br/>Listener"]
+  repo["<b>NotificationRepository</b><br/><i>repository (interface)</i>"]
+  jpa["<b>JpaNotificationRepository</b><br/><i>repository.jpa</i>"]
+  db[("MySQL<br/>notifications")]
+
+  client -- "POST /api/v1/notifications" --> ctrl
+  ctrl -- "send(request)" --> svc
+  ctrl -. "exceptions" .-> geh
+  svc -- "compose text" --> content
+  svc -- "channel enabled?" --> pref
+  svc -- "idempotency check, save" --> repo
+  svc -- "CREATED, CANCELLED" --> pub
+  svc -- "deliver(notification)" --> engine
+  engine -- "resolve(type)" --> resolver
+  resolver --> email & sms & push & inapp
+  engine -- "retry or give up?" --> retry
+  engine -- "update status" --> repo
+  engine -- "SENT, RETRYING, FAILED" --> pub
+  pub --> audit & logl & metrics
+  repo -. "implemented by" .-> jpa
+  jpa --> db
+
+${classDefs(p)}
+  class client,ctrl,geh,repo,jpa,db persistence
+  class svc,engine core
+  class content decorator
+  class pref,retry support
+  class resolver,email,sms,push,inapp strategy
+  class pub,audit,logl,metrics observer
+`,
+
+    sequence: p => `
+sequenceDiagram
+  autonumber
+  actor Client as Banking System
+  participant C as NotificationController
+  participant S as NotificationService
+  participant R as NotificationRepository
+  participant Pr as PreferenceService
+  participant P as EventPublisher
+  participant E as NotificationEngine
+  participant Res as ChannelResolver
+  participant Ch as NotificationChannel
+  participant RP as RetryPolicy
+
+  Client->>C: POST /api/v1/notifications
+  C->>S: send(NotificationRequest)
+  S->>S: validate(request)
+  S->>R: findByIdempotencyKey(key)
+  alt key was already used
+    R-->>S: existing notification
+    S-->>C: existing (nothing is sent again)
+  else new request
+    S->>S: build text: Signature(Timestamp(Simple))
+    S->>S: Notification.create(...)
+    S->>R: save(notification) [CREATED]
+    S->>P: publish(NOTIFICATION_CREATED)
+    S->>Pr: isChannelEnabled(userId, type)
+    alt disabled and priority is not CRITICAL
+      S->>R: updateStatus [CANCELLED]
+      S->>P: publish(NOTIFICATION_CANCELLED)
+    else allowed
+      S->>R: updateStatus [QUEUED]
+      S->>E: deliver(notification)
+      E->>Res: resolve(notificationType)
+      Res-->>E: e.g. SmsNotificationChannel
+      loop until SENT or FAILED
+        E->>R: updateStatus [PROCESSING]
+        E->>Ch: send(notification)
+        alt send succeeded
+          E->>R: updateStatus [SENT]
+          E->>P: publish(NOTIFICATION_SENT)
+        else send threw an exception
+          E->>RP: isRetryable(ex)? attempts left?
+          alt yes, retry
+            E->>R: updateStatus [RETRYING]
+            E->>P: publish(NOTIFICATION_RETRYING)
+            E->>E: wait delayAfterAttempt(n)
+          else no, give up
+            E->>R: updateStatus [FAILED]
+            E->>P: publish(NOTIFICATION_FAILED)
+          end
+        end
+      end
+    end
+    S-->>C: notification
+  end
+  C-->>Client: 201 Created + NotificationResponse
+`,
+
+    strategy: p => `
+classDiagram
+  direction TB
+  class NotificationEngine {
+    -NotificationChannelResolver channelResolver
+    +deliver(Notification notification) void
+  }
+  class NotificationChannelResolver {
+    -Map~NotificationType, NotificationChannel~ channelsByType
+    +NotificationChannelResolver(List~NotificationChannel~ channels)
+    +resolve(NotificationType type) NotificationChannel
+  }
+  class NotificationChannel {
+    <<interface>>
+    +supportedType() NotificationType
+    +send(Notification notification) void
+  }
+  class EmailNotificationChannel {
+    +supportedType() NotificationType
+    +send(Notification notification) void
+  }
+  class SmsNotificationChannel {
+    +supportedType() NotificationType
+    +send(Notification notification) void
+  }
+  class PushNotificationChannel {
+    +supportedType() NotificationType
+    +send(Notification notification) void
+  }
+  class InAppNotificationChannel {
+    +supportedType() NotificationType
+    +send(Notification notification) void
+  }
+  class NotificationType {
+    <<enumeration>>
+    EMAIL
+    SMS
+    PUSH
+    IN_APP
+  }
+
+  NotificationEngine --> NotificationChannelResolver : asks for a channel
+  NotificationEngine ..> NotificationChannel : calls send()
+  NotificationChannelResolver o-- "4" NotificationChannel : map by type
+  NotificationChannel <|.. EmailNotificationChannel
+  NotificationChannel <|.. SmsNotificationChannel
+  NotificationChannel <|.. PushNotificationChannel
+  NotificationChannel <|.. InAppNotificationChannel
+  NotificationChannelResolver ..> NotificationType : map key
+
+${paint(p, "core", "NotificationEngine")}
+${paint(p, "strategy", "NotificationChannelResolver,NotificationChannel,EmailNotificationChannel,SmsNotificationChannel,PushNotificationChannel,InAppNotificationChannel")}
+${paint(p, "persistence", "NotificationType")}
+`,
+
+    observer: p => `
+classDiagram
+  direction TB
+  class NotificationService
+  class NotificationEngine
+  class NotificationEventPublisher {
+    -List~NotificationEventListener~ listeners
+    +subscribe(NotificationEventListener listener) void
+    +unsubscribe(NotificationEventListener listener) void
+    +publish(NotificationEvent event) void
+  }
+  class NotificationEventListener {
+    <<interface>>
+    +onEvent(NotificationEvent event) void
+  }
+  class NotificationAuditListener {
+    +onEvent(NotificationEvent event) void
+  }
+  class NotificationLoggingListener {
+    +onEvent(NotificationEvent event) void
+  }
+  class NotificationMetricsListener {
+    -Map~NotificationEventType, Long~ counters
+    +onEvent(NotificationEvent event) void
+    +count(NotificationEventType type) long
+  }
+  class NotificationEvent {
+    <<immutable snapshot>>
+    +NotificationEventType eventType
+    +String notificationId
+    +String userId
+    +NotificationType notificationType
+    +NotificationPriority priority
+    +NotificationStatus status
+    +String reason
+    +Instant occurredAt
+  }
+  class NotificationEventType {
+    <<enumeration>>
+    NOTIFICATION_CREATED
+    NOTIFICATION_SENT
+    NOTIFICATION_RETRYING
+    NOTIFICATION_FAILED
+    NOTIFICATION_CANCELLED
+  }
+
+  NotificationService ..> NotificationEventPublisher : publish()
+  NotificationEngine ..> NotificationEventPublisher : publish()
+  NotificationEventPublisher o-- "*" NotificationEventListener : notifies all
+  NotificationEventListener <|.. NotificationAuditListener
+  NotificationEventListener <|.. NotificationLoggingListener
+  NotificationEventListener <|.. NotificationMetricsListener
+  NotificationEventPublisher ..> NotificationEvent : passes
+  NotificationEvent --> NotificationEventType
+
+${paint(p, "core", "NotificationService,NotificationEngine")}
+${paint(p, "observer", "NotificationEventPublisher,NotificationEventListener,NotificationAuditListener,NotificationLoggingListener,NotificationMetricsListener,NotificationEvent")}
+${paint(p, "persistence", "NotificationEventType")}
+`,
+
+    observerRuntime: p => `
+sequenceDiagram
+  participant E as NotificationEngine
+  participant P as NotificationEventPublisher
+  participant A as AuditListener
+  participant L as LoggingListener
+  participant M as MetricsListener
+
+  E->>P: publish(event: NOTIFICATION_SENT)
+  Note over P: loop over listeners, try/catch around each call
+  P->>A: onEvent(event)
+  A-->>P: writes audit record
+  P->>L: onEvent(event)
+  L--xP: throws RuntimeException
+  Note over P,L: caught and logged, loop continues
+  P->>M: onEvent(event)
+  M-->>P: counters SENT + 1
+  P-->>E: return (delivery is never affected)
+`,
+
+    decorator: p => `
+classDiagram
+  direction TB
+  class NotificationContent {
+    <<interface>>
+    +getTitle() String
+    +getBody() String
+  }
+  class SimpleNotification {
+    -String title
+    -String body
+    +getTitle() String
+    +getBody() String
+  }
+  class NotificationDecorator {
+    <<abstract>>
+    #NotificationContent wrapped
+    +getTitle() String
+    +getBody() String
+  }
+  class TimestampNotificationDecorator {
+    -String timestamp
+    +getBody() String
+  }
+  class SignatureNotificationDecorator {
+    -String signature
+    +getBody() String
+  }
+
+  NotificationContent <|.. SimpleNotification : is a
+  NotificationContent <|.. NotificationDecorator : is a
+  NotificationDecorator o-- "1" NotificationContent : has a (wraps)
+  NotificationDecorator <|-- TimestampNotificationDecorator
+  NotificationDecorator <|-- SignatureNotificationDecorator
+
+${paint(p, "decorator", "NotificationContent,SimpleNotification,NotificationDecorator,TimestampNotificationDecorator,SignatureNotificationDecorator")}
+`,
+
+    core: p => `
+classDiagram
+  direction TB
+  class NotificationController {
+    -NotificationService notificationService
+    +send(NotificationRequest request) ResponseEntity
+    +getById(String notificationId) NotificationResponse
+    +getByUserId(String userId) List~NotificationResponse~
+  }
+  class NotificationRequest {
+    <<record>>
+    +String userId
+    +String title
+    +String content
+    +NotificationType notificationType
+    +NotificationPriority priority
+    +String idempotencyKey
+  }
+  class NotificationResponse {
+    <<record>>
+    +String notificationId
+    +NotificationStatus status
+    +Instant createdAt
+    +from(Notification notification)$ NotificationResponse
+  }
+  class NotificationService {
+    -NotificationRepository repository
+    -NotificationEngine engine
+    -NotificationEventPublisher eventPublisher
+    -NotificationPreferenceService preferenceService
+    -Validator validator
+    +send(NotificationRequest request) Notification
+    +getById(String notificationId) Notification
+    +getByUserId(String userId) List~Notification~
+  }
+  class NotificationEngine {
+    -NotificationChannelResolver channelResolver
+    -NotificationRepository repository
+    -NotificationEventPublisher eventPublisher
+    -RetryPolicy retryPolicy
+    +deliver(Notification notification) void
+  }
+  class Notification {
+    -String notificationId
+    -String userId
+    -String title
+    -String content
+    -NotificationType notificationType
+    -NotificationPriority priority
+    -NotificationStatus status
+    -String idempotencyKey
+    -Instant createdAt
+    -Instant updatedAt
+    +create(userId, title, content, type, priority, key, now)$ Notification
+    +transitionTo(NotificationStatus next, Instant now) void
+  }
+  class NotificationStatus {
+    <<enumeration>>
+    CREATED
+    QUEUED
+    PROCESSING
+    SENT
+    FAILED
+    RETRYING
+    CANCELLED
+    +canTransitionTo(NotificationStatus next) boolean
+  }
+  class NotificationPriority {
+    <<enumeration>>
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+    +overridesUserPreferences() boolean
+  }
+  class NotificationPreferenceService {
+    <<interface>>
+    +isChannelEnabled(String userId, NotificationType type) boolean
+  }
+  class InMemoryNotificationPreferenceService {
+    -Map disabledChannelsByUser
+    +isChannelEnabled(String userId, NotificationType type) boolean
+    +setChannelEnabled(String userId, NotificationType type, boolean enabled) void
+  }
+  class RetryPolicy {
+    <<interface>>
+    +maxAttempts() int
+    +isRetryable(Throwable failure) boolean
+    +delayAfterAttempt(int failedAttempt) Duration
+  }
+  class ExponentialBackoffRetryPolicy {
+    -int maxAttempts
+    -Duration initialDelay
+    -double multiplier
+    -Duration maxDelay
+  }
+  class NotificationDeliveryException {
+    -boolean retryable
+    +retryable(String message, Throwable cause)$ NotificationDeliveryException
+    +permanent(String message, Throwable cause)$ NotificationDeliveryException
+    +isRetryable() boolean
+  }
+  class NotificationConfig {
+    <<Configuration>>
+    +retryPolicy() RetryPolicy
+    +clock() Clock
+  }
+  class NotificationRepository {
+    <<interface>>
+  }
+
+  NotificationController --> NotificationService
+  NotificationController ..> NotificationRequest : receives
+  NotificationController ..> NotificationResponse : returns
+  NotificationService --> NotificationRepository
+  NotificationService --> NotificationPreferenceService
+  NotificationService --> NotificationEngine
+  NotificationService ..> Notification : creates
+  NotificationEngine --> RetryPolicy
+  NotificationEngine --> NotificationRepository
+  NotificationEngine ..> Notification : changes status
+  Notification --> NotificationStatus
+  Notification --> NotificationPriority
+  NotificationPreferenceService <|.. InMemoryNotificationPreferenceService
+  RetryPolicy <|.. ExponentialBackoffRetryPolicy
+  ExponentialBackoffRetryPolicy ..> NotificationDeliveryException : reads isRetryable()
+  NotificationConfig ..> ExponentialBackoffRetryPolicy : creates bean
+
+${paint(p, "persistence", "NotificationController,NotificationRequest,NotificationResponse,NotificationRepository,NotificationStatus,NotificationPriority,NotificationConfig")}
+${paint(p, "core", "NotificationService,NotificationEngine,Notification")}
+${paint(p, "support", "NotificationPreferenceService,InMemoryNotificationPreferenceService,RetryPolicy,ExponentialBackoffRetryPolicy,NotificationDeliveryException")}
+`,
+
+    persistence: p => `
+classDiagram
+  direction TB
+  class NotificationService
+  class NotificationEngine
+  class NotificationRepository {
+    <<interface>>
+    +save(Notification notification) void
+    +findById(String notificationId) Optional~Notification~
+    +findByIdempotencyKey(String key) Optional~Notification~
+    +findByUserId(String userId) List~Notification~
+    +updateStatus(Notification notification) void
+  }
+  class JpaNotificationRepository {
+    -SpringDataNotificationRepository springDataRepository
+  }
+  class NotificationMapper {
+    +toEntity(Notification notification) NotificationEntity
+    +toDomain(NotificationEntity entity) Notification
+  }
+  class SpringDataNotificationRepository {
+    <<interface>>
+    +findByIdempotencyKey(String key) Optional~NotificationEntity~
+    +findByUserIdOrderByCreatedAtDesc(String userId) List~NotificationEntity~
+    +updateStatus(String id, NotificationStatus status, Instant updatedAt) int
+  }
+  class JpaRepository {
+    <<Spring Data>>
+    +save(entity)
+    +findById(id)
+  }
+  class NotificationEntity {
+    <<Entity>>
+    -String notificationId PK
+    -String userId INDEXED
+    -String title
+    -String content
+    -NotificationType notificationType
+    -NotificationPriority priority
+    -NotificationStatus status
+    -String idempotencyKey UNIQUE
+    -Instant createdAt
+    -Instant updatedAt
+  }
+  class Notification {
+    <<domain>>
+  }
+
+  NotificationService --> NotificationRepository : knows only the interface
+  NotificationEngine --> NotificationRepository
+  NotificationRepository <|.. JpaNotificationRepository
+  JpaNotificationRepository --> SpringDataNotificationRepository
+  JpaNotificationRepository ..> NotificationMapper : uses
+  JpaRepository <|-- SpringDataNotificationRepository
+  SpringDataNotificationRepository ..> NotificationEntity : stores
+  NotificationMapper ..> Notification : converts
+  NotificationMapper ..> NotificationEntity : converts
+
+${paint(p, "core", "NotificationService,NotificationEngine,Notification")}
+${paint(p, "persistence", "NotificationRepository,JpaNotificationRepository,NotificationMapper,SpringDataNotificationRepository,JpaRepository,NotificationEntity")}
+`,
+
+    lifecycle: p => `
+stateDiagram-v2
+  direction TB
+  [*] --> CREATED : service saves new notification
+  CREATED --> QUEUED : preference allows delivery
+  CREATED --> CANCELLED : channel disabled by user
+  QUEUED --> PROCESSING : engine starts an attempt
+  QUEUED --> FAILED : no channel for this type
+  QUEUED --> CANCELLED : cancel requested
+  PROCESSING --> SENT : channel send succeeded
+  PROCESSING --> RETRYING : retryable failure, attempts left
+  PROCESSING --> FAILED : permanent failure or attempts used up
+  RETRYING --> PROCESSING : after backoff delay
+  RETRYING --> FAILED : interrupted while waiting
+  RETRYING --> CANCELLED : cancel requested
+  SENT --> [*]
+  FAILED --> [*]
+  CANCELLED --> [*]
+
+${classDefs(p)}
+  class CREATED,QUEUED core
+  class PROCESSING,RETRYING support
+  class SENT observer
+  class FAILED,CANCELLED persistence
+`
+  };
+
+  let renderCount = 0;
+
+  function showSource(el, message, source) {
+    el.innerHTML = "";
+    const pre = document.createElement("pre");
+    pre.className = "diagram-fallback";
+    pre.textContent = message + "\n\n" + source.trim();
+    el.appendChild(pre);
+  }
+
+  async function renderAll() {
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const palette = dark ? PALETTES.dark : PALETTES.light;
+    const targets = document.querySelectorAll("[data-diagram]");
+
+    if (typeof mermaid === "undefined") {
+      targets.forEach(function (el) {
+        showSource(el, "Mermaid could not load (no internet?). Diagram source shown instead:",
+          DIAGRAMS[el.dataset.diagram](palette));
+      });
+      document.documentElement.dataset.rendered = "no-mermaid";
+      return;
+    }
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: dark ? "dark" : "neutral",
+      securityLevel: "loose",
+      suppressErrorRendering: true,
+      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+      flowchart: { useMaxWidth: false, curve: "basis", htmlLabels: true },
+      class: { useMaxWidth: false },
+      sequence: { useMaxWidth: false, mirrorActors: false },
+      state: { useMaxWidth: false }
+    });
+
+    const failures = [];
+    for (const el of targets) {
+      const name = el.dataset.diagram;
+      const source = DIAGRAMS[name](palette);
+      try {
+        const result = await mermaid.render("mmd-" + name + "-" + (++renderCount), source);
+        el.innerHTML = '<div class="diagram-toolbar"><button type="button" class="zoom-btn">Actual size (scroll)</button></div>' + result.svg;
+        if (!el.dataset.zoom && el.dataset.start !== "actual") el.classList.add("fit");
+        el.querySelector(".zoom-btn").textContent = el.classList.contains("fit") ? "Actual size (scroll)" : "Fit to width";
+        el.querySelector(".zoom-btn").addEventListener("click", function () {
+          el.dataset.zoom = "set";
+          el.classList.toggle("fit");
+          this.textContent = el.classList.contains("fit") ? "Actual size (scroll)" : "Fit to width";
+        });
+      } catch (err) {
+        failures.push(name);
+        showSource(el, "Could not render \"" + name + "\": " + (err && err.message ? err.message : err), source);
+      }
+    }
+    document.documentElement.dataset.rendered = failures.length ? "errors:" + failures.join(",") : "ok";
+  }
+
+  renderAll();
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+})();
+</script>
+</body>
+</html>
