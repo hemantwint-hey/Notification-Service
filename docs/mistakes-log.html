@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification Service: Mistakes &amp; Learning Log</title>
+<style>
+  :root {
+    --bg: #f7f7f4; --surface: #fff; --surface-2: #f1f2ee; --text: #1c222c; --muted: #5b6573;
+    --border: #e0e2dd; --accent: #2f6fde;
+    --bad: #c0392b; --bad-bg: #fdecea; --bad-border: #f1b5ae;
+    --good: #1f8f4e; --good-bg: #e7f6ec; --good-border: #a8dcbb;
+    --concept: #7446d6; --concept-bg: #f1e9ff;
+    --warn: #b8740a; --warn-bg: #fff2d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13161b; --surface: #1b1f26; --surface-2: #232830; --text: #e6eaf0; --muted: #9aa4b2;
+      --border: #2e3440; --accent: #79a6ff;
+      --bad: #ff8a78; --bad-bg: #331a17; --bad-border: #5c2a24;
+      --good: #4fcf85; --good-bg: #122a1d; --good-border: #24523a;
+      --concept: #b08cff; --concept-bg: #241a3d;
+      --warn: #f0b54a; --warn-bg: #33270f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .page { max-width: 980px; margin: 0 auto; padding: 36px 20px 80px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  h2 { font-size: 20px; margin: 44px 0 10px; }
+  h3 { font-size: 15px; margin: 22px 0 6px; }
+  code, pre { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  pre { margin: 0; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; }
+  pre.bad  { background: var(--bad-bg);  border: 1px solid var(--bad-border); }
+  pre.good { background: var(--good-bg); border: 1px solid var(--good-border); }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 12px 0 4px; }
+  .label.bad { color: var(--bad); }
+  .label.good { color: var(--good); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .round { margin-top: 36px; }
+  .round-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+                border-bottom: 2px solid var(--text); padding-bottom: 8px; }
+  .round-head h2 { margin: 0; }
+  .round-meta { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+  .entry { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--bad);
+           border-radius: 0 10px 10px 0; padding: 16px 20px; margin: 16px 0; }
+  .entry.ok { border-left-color: var(--good); }
+  .entry-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .entry-id { font: 700 12px/1 ui-monospace, monospace; color: var(--muted); }
+  .entry-title { font-size: 17px; font-weight: 700; margin: 0; }
+  .file { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .chip { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+          padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .chip.blocker { color: var(--bad); background: var(--bad-bg); }
+  .chip.bug { color: var(--warn); background: var(--warn-bg); }
+  .chip.style { color: var(--muted); background: var(--surface-2); }
+  .why { margin: 12px 0 0; }
+  .why b { color: var(--text); }
+
+  .concept { margin-top: 14px; background: var(--concept-bg); border-radius: 8px; padding: 12px 14px; }
+  .concept .concept-head { color: var(--concept); font-weight: 700; font-size: 13px;
+                           text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  ul.tight { margin: 6px 0; padding-left: 20px; }
+  ul.tight li { margin: 3px 0; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+  .toc a { font-size: 13px; text-decoration: none; color: var(--text); background: var(--surface);
+           border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
+  .toc a:hover { border-color: var(--accent); color: var(--accent); }
+  footer { margin-top: 50px; color: var(--muted); font-size: 13px; }
+  @media print { .toc, footer { display: none; } .entry, .card { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Mistakes &amp; Learning Log</h1>
+<p class="sub">Notification Service &middot; every bug I made, the fix, and why it was wrong. Read this before revising the project,
+and before writing a new package.</p>
+
+<div class="card">
+  <b>How to use this file</b>
+  <ul class="tight">
+    <li>Each <b>round</b> = one code review. Newest rounds are added at the bottom.</li>
+    <li>Each <b>entry</b> shows: what I wrote &rarr; what it should be &rarr; why it matters.</li>
+    <li>Purple boxes are <b>new concepts</b>: Java or Spring features worth knowing beyond this one bug.</li>
+    <li>The <a href="#checklist">self-check list</a> at the bottom grows with every round. Run through it <i>before</i> asking for a review.</li>
+  </ul>
+  <ul class="toc">
+    <li><a href="#round-1">Round 1 &middot; domain, DTOs, exceptions</a></li>
+    <li><a href="#round-2">Round 2 &middot; decorator package</a></li>
+    <li><a href="#round-3">Round 3 &middot; retry package</a></li>
+    <li><a href="#round-4">Round 4 &middot; strategy package</a></li>
+    <li><a href="#concepts">Concept index</a></li>
+    <li><a href="#checklist">Self-check list</a></li>
+  </ul>
+</div>
+
+<!-- ============================ ROUND 1 ============================ -->
+<section class="round" id="round-1">
+  <div class="round-head">
+    <h2>Round 1 &middot; enums, domain, DTOs, exceptions</h2>
+    <span class="round-meta">21 Sep 2026 &middot; 12 issues &middot; verified with 7 tests</span>
+  </div>
+
+  <!-- 1.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.1</span>
+      <h3 class="entry-title">The domain object had no way to change its status</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">// Notification had a status field...
+private NotificationStatus notificationStatus;
+
+// ...and NotificationStatus had the rules...
+public boolean canTransition(NotificationStatus next) { ... }
+
+// ...but nothing ever called it. No method could change the status.</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public void transitionTo(NotificationStatus next, Instant now) {
+    if (!notificationStatus.canTransition(next)) {
+        throw new IllegalStateException(
+                "Notification %s cannot move from %s to %s".formatted(notificationId, notificationStatus, next));
+    }
+    this.notificationStatus = next;
+    this.updatedAt = now;
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the whole lifecycle was dead code. Nothing could ever become
+    <code>QUEUED</code>, <code>SENT</code> or <code>FAILED</code>, so the service and engine I write next would have had
+    nothing to call. I had written the <i>rules</i> (in the enum) but not the <i>door</i> that uses them.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: keep the rule next to the data it guards</div>
+      The enum knows which moves are legal; the object applies them. Because <code>notificationStatus</code> is private and
+      only <code>transitionTo()</code> can change it, <b>no code anywhere</b> can put a notification into an illegal state.
+      That is encapsulation doing real work, not just "make fields private".
+      Note also that <code>now</code> is a parameter instead of calling <code>Instant.now()</code> inside: that is what
+      lets a test pass a fixed time and assert the exact <code>updatedAt</code>.
+    </div>
+  </article>
+
+  <!-- 1.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.2</span>
+      <h3 class="entry-title"><code>create()</code> threw away the channel type and the idempotency key</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public Notification(String notificationId, String userId, String content, String title,
+                    Instant now, NotificationStatus notificationStatus,
+                    NotificationPriority notificationPriority) {
+    ...
+    this.notificationType = null;      // hardcoded!
+    this.IdempotencyKey = null;        // hardcoded!
+}
+
+public static Notification create(String userId, String content, String title, Instant now,
+                                  NotificationStatus notificationStatus,
+                                  NotificationPriority notificationPriority) { ... }</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public static Notification create(String userId,
+                                  String title,
+                                  String content,
+                                  NotificationType notificationType,
+                                  NotificationPriority notificationPriority,
+                                  String idempotencyKey,
+                                  Instant now) {
+    return new Notification(UUID.randomUUID().toString(), userId, title, content, notificationType,
+            notificationPriority, NotificationStatus.CREATED, idempotencyKey, now, now);
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> two features would have silently broken.
+    <code>notificationType == null</code> means <code>NotificationChannelResolver</code> can never find a channel, so every
+    notification fails. <code>idempotencyKey == null</code> means the same bank transaction could notify the customer twice.
+    A field that always holds <code>null</code> is a field that does not exist.</p>
+  </article>
+
+  <!-- 1.3 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.3</span>
+      <h3 class="entry-title">A parameter that is accepted and then ignored</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public static Notification create(..., NotificationStatus notificationStatus, ...) {
+    // the caller's status is ignored, CREATED is always used
+    return new Notification(UUID.randomUUID().toString(), userId, content, title, now,
+                            NotificationStatus.CREATED, notificationPriority);
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">// no status parameter at all: a new notification is always CREATED
+public static Notification create(String userId, String title, String content, ...) {
+    return new Notification(..., NotificationStatus.CREATED, ...);
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the signature made a promise the body did not keep. A teammate would pass
+    <code>SENT</code>, see it silently ignored, and lose an hour. If a value cannot be chosen, do not ask for it.</p>
+  </article>
+
+  <!-- 1.4 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.4</span>
+      <h3 class="entry-title">Argument order flipped: <code>(content, title)</code> in one place, <code>(title, content)</code> everywhere else</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public static Notification create(String userId, String content, String title, ...)</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public static Notification create(String userId, String title, String content, ...)</pre>
+
+    <p class="why"><b>Why it was wrong:</b> both are <code>String</code>, so the compiler cannot help. Swap them by accident
+    and the SMS body becomes "Money debited" while the title becomes the whole message. It compiles, it runs, and the
+    customer gets nonsense. Keeping one order everywhere is the only protection.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: same-type parameters are a trap</div>
+      When several parameters share a type, order mistakes are invisible to the compiler. Defences, in order of strength:
+      keep a consistent order everywhere (done here), use a builder for long lists, or wrap values in small types
+      (<code>record Title(String value)</code>) so a swap stops compiling.
+    </div>
+  </article>
+
+  <!-- 1.5 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.5</span>
+      <h3 class="entry-title">Assigning to a parameter instead of a field (dead code)</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public Notification(String notificationId, Instant updatedAt, NotificationPriority priority,
+                    String userId, ..., NotificationPriority notificationPriority, ...) {
+    ...
+    priority = notificationPriority;   // assigns to the PARAMETER: does nothing at all
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">// the duplicate 'priority' parameter is gone; only the field assignment remains
+this.notificationPriority = Objects.requireNonNull(notificationPriority, "notificationPriority");</pre>
+
+    <p class="why"><b>Why it was wrong:</b> <code>priority = notificationPriority;</code> writes into a local variable
+    that disappears when the constructor ends. Without <code>this.</code> you are not touching the object at all. Having
+    two parameters for one concept is what made the mistake possible.</p>
+  </article>
+
+  <!-- 1.6 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.6</span>
+      <h3 class="entry-title">The <code>restore()</code> builder could not restore the status</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">@Builder(builderMethodName = "restore")
+public Notification(String notificationId, Instant updatedAt, ..., Instant cretedAt, String idempotencyKey) {
+    // no notificationStatus parameter anywhere
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@Builder(builderMethodName = "restore")
+private Notification(String notificationId, String userId, String title, String content,
+                     NotificationType notificationType, NotificationPriority notificationPriority,
+                     NotificationStatus notificationStatus, String idempotencyKey,
+                     Instant createdAt, Instant updatedAt) { ... }</pre>
+
+    <p class="why"><b>Why it was wrong:</b> <code>restore()</code> exists to rebuild a notification read from the database.
+    A row stored as <code>SENT</code> would come back with <code>status == null</code>, and the next
+    <code>transitionTo()</code> would throw <code>NullPointerException</code>. Loading must reproduce the row exactly.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: two doors in, for two different reasons</div>
+      <code>create(...)</code> makes a <b>new</b> notification: it generates the id and forces the starting status.
+      <code>restore()...build()</code> rebuilds an <b>existing</b> one: every field comes from the database, nothing is generated.
+      Lombok's <code>@Builder(builderMethodName = "restore")</code> renames the generated <code>builder()</code> method, so the
+      call site reads <code>Notification.restore().userId("u1")...build()</code>. A builder is used here because 10
+      positional arguments of mostly the same type are easy to mis-order (see 1.4).
+    </div>
+  </article>
+
+  <!-- 1.7 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.7</span>
+      <h3 class="entry-title">Public constructors and no null checks</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public Notification(...) { this.userId = userId; ... }   // anyone can build any state
+public Notification(...) { ... }                          // second public constructor</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">private Notification(...) {
+    this.userId = Objects.requireNonNull(userId, "userId");
+    this.title = Objects.requireNonNull(title, "title");
+    ...
+    this.idempotencyKey = idempotencyKey;   // optional: null means "no deduplication"
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> a public constructor is a second, unguarded way in. Any code could create a
+    notification with a <code>null</code> type or a status of its choosing, bypassing the rules in <code>create()</code>.
+    Without the null checks, a <code>null</code> <code>userId</code> stays invisible until the database rejects the insert,
+    far from the line that caused it.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: fail fast</div>
+      <code>Objects.requireNonNull(x, "x")</code> throws immediately, at the exact line, naming the field. The alternative is
+      a <code>NullPointerException</code> or SQL error minutes later in a different class. Note which field is deliberately
+      <b>not</b> checked: <code>idempotencyKey</code> is optional, and the comment says so, so the next reader does not
+      "fix" it by adding a check.
+    </div>
+  </article>
+
+  <!-- 1.8 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.8</span>
+      <h3 class="entry-title">Typos in field names leak into every caller</h3>
+      <span class="chip style">Naming</span>
+    </div>
+    <div class="file">domain/Notification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">private final Instant cretedAt;        // typo -> Lombok generates getCretedAt()
+private final String IdempotencyKey;   // capital I -> forced: IdempotencyKey = idempotencyKey;
+
+// and in NotificationResponse I then had to write:
+notification.getCretedAt()</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">private final Instant createdAt;       // getCreatedAt()
+private final String idempotencyKey;   // this.idempotencyKey = idempotencyKey;</pre>
+
+    <p class="why"><b>Why it was wrong:</b> a typo in a field name is not private. Lombok turns it into a public getter,
+    and the mistake spreads to every class that calls it. I had already copied <code>getCretedAt()</code> into
+    <code>NotificationResponse</code>. Java convention: fields are <code>camelCase</code>, starting lower case; classes are
+    <code>PascalCase</code>.</p>
+  </article>
+
+  <!-- 1.9 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.9</span>
+      <h3 class="entry-title">DTOs with no getters: the API would send <code>{}</code> and read nothing</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">dto/request/NotificationRequest.java &middot; dto/response/NotificationResponse.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public class NotificationRequest {
+    @NotBlank @Size(max = 64)
+    String userId;          // package-private field, no getter, no setter
+    @NotNull
+    NotificationType notificationType;
+    ...
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public record NotificationRequest(
+        @NotBlank @Size(max = 64) String userId,
+        @NotBlank @Size(max = 200) String title,
+        @NotBlank @Size(max = 2000) String content,
+        @NotNull NotificationType notificationType,
+        @NotNull NotificationPriority notificationPriority,
+        @Size(max = 128) String idempotencyKey) {
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> Jackson (the JSON library Spring uses) looks for <b>public getters</b>, not
+    package-private fields. The damage ran both ways:
+    <ul class="tight">
+      <li><b>Request:</b> every field stayed <code>null</code> whatever the client sent, so validation rejected every request
+      with "must not be blank". The endpoint could never succeed.</li>
+      <li><b>Response:</b> nothing was visible to serialise, so the API would answer <code>{}</code> for every notification.</li>
+    </ul>
+    Both were silent: the code compiles perfectly.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>record</code> (Java 16+)</div>
+      <code>record X(int a, String b) {}</code> generates the constructor, the accessors (<code>a()</code>,
+      <code>b()</code>: no <code>get</code> prefix), plus <code>equals</code>, <code>hashCode</code> and
+      <code>toString</code>. Fields are final, so a record is immutable. That makes it a perfect DTO: data in, data out,
+      no behaviour. Jackson understands records natively. Validation annotations written on the components apply to the
+      fields, so <code>@NotBlank</code> keeps working.
+      <br><br>
+      Use a <code>record</code> for DTOs and events. Use a normal class for <code>Notification</code>, because it has
+      changing state (<code>status</code>) and rules to protect.
+    </div>
+  </article>
+
+  <!-- 1.10 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.10</span>
+      <h3 class="entry-title">The retryable flag nobody could read</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">exception/NotificationDeliveryException.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public class NotificationDeliveryException extends RuntimeException {
+    private final boolean retryble;                    // spelling, and...
+
+    public NotificationDeliveryException(String message, boolean retyrable, Throwable cause) { ... }
+
+    public static NotificationDeliveryException retryble(String message, Throwable cause) { ... }
+    public static NotificationDeliveryException permanent(String message, Throwable cause) { ... }
+    // ...no way to read the flag</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">private final boolean retryable;
+
+private NotificationDeliveryException(String message, boolean retryable, Throwable cause) { ... }
+
+public static NotificationDeliveryException retryable(String message, Throwable cause) { ... }
+public static NotificationDeliveryException permanent(String message, Throwable cause) { ... }
+
+/** RetryPolicy asks this to decide whether another attempt makes sense. */
+public boolean isRetryable() {
+    return retryable;
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the class exists to answer one question, "should we try again?", and it had no
+    way to answer it. <code>ExponentialBackoffRetryPolicy.isRetryable(failure)</code> would not have compiled.
+    The constructor was also public, so callers could sidestep the two named factories; making it private means
+    <code>retryable(...)</code> and <code>permanent(...)</code> are the only ways to build one.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: static factory + private constructor</div>
+      <code>NotificationDeliveryException.retryable("gateway timeout", cause)</code> says what it means.
+      <code>new NotificationDeliveryException("gateway timeout", true, cause)</code> forces the reader to guess what
+      <code>true</code> refers to. Named factories plus a private constructor give a small, readable, impossible-to-misuse API.
+    </div>
+  </article>
+
+  <!-- 1.11 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">1.11</span>
+      <h3 class="entry-title">Exception messages glued together without separators</h3>
+      <span class="chip style">Polish</span>
+    </div>
+    <div class="file">exception/*.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">super("Notificatin not found" + notificationId);
+// prints: Notificatin not found7f3a9c21-...
+
+super("Invalid Notification request" + String.join(";", violations));
+super("A notification already exists for this key" + idempotencyKey, cause);</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">super("Notification not found: " + notificationId);
+super("Invalid notification request: " + String.join("; ", violations));
+super("A notification already exists for idempotency key: " + idempotencyKey, cause);</pre>
+
+    <p class="why"><b>Why it was wrong:</b> this message is what you will read at 2am in a production log. Missing the
+    space, and the typo "Notificatin", make it harder to read and impossible to grep for.</p>
+  </article>
+
+  <!-- 1.12 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">1.12</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">enums/*.java &middot; exception/GlobalExceptionHandler.java</div>
+
+    <ul class="tight">
+      <li><b><code>NotificationStatus.canTransition</code></b>: the transition table was correct, and writing it with no
+      <code>default</code> branch means adding a status later becomes a compile error instead of a silent gap.</li>
+      <li><b><code>overridesUserPreferences()</code> on the priority enum</b>: the banking rule "CRITICAL ignores opt-out"
+      lives on the value itself, instead of being copy-pasted as <code>if (priority == CRITICAL)</code>.</li>
+      <li><b>All exceptions unchecked</b> (<code>extends RuntimeException</code>), the normal Spring style.</li>
+      <li><b><code>List.copyOf(violations)</code></b>: the caller cannot modify the list after the exception is built.</li>
+      <li><b><code>ProblemDetail</code> in the handler</b>, with the violations attached as an <code>errors</code> property.</li>
+      <li><b><code>@Builder(builderMethodName = "restore")</code></b>: the right instinct, that loading and creating are
+      different operations.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: exhaustive <code>switch</code> over an enum</div>
+      A <code>switch</code> <i>expression</i> (with <code>-&gt;</code> and a returned value) over an enum must cover every
+      constant. Because you listed each one and added no <code>default</code>, adding <code>EXPIRED</code> tomorrow breaks
+      the build at exactly the line that needs a decision. Adding <code>default -&gt; false</code> would throw that safety away.
+    </div>
+  </article>
+</section>
+<!-- ============================ ROUND 2 ============================ -->
+<section class="round" id="round-2">
+  <div class="round-head">
+    <h2>Round 2 &middot; decorator package</h2>
+    <span class="round-meta">21 Sep 2026 &middot; 4 issues &middot; verified with 6 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>Overall:</b> the pattern itself was <b>correct</b>. <code>NotificationDecorator</code> both implements
+    <code>NotificationContent</code> and holds one, the two decorators extend the base and override only
+    <code>getBody()</code>, and the timestamp is formatted once in the constructor. Only one issue was a real blocker,
+    and it was about <i>access</i>, not about the pattern.
+  </div>
+
+  <!-- 2.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">2.1</span>
+      <h3 class="entry-title"><code>protected</code> constructor: the service could not create the decorator</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">decorator/TimestampNotificationDecorator.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">protected TimestampNotificationDecorator(NotificationContent notificationContent, ZonedDateTime generatedAt) {
+    super(notificationContent);
+    this.timestamp = FORMAT.format(generatedAt);
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public TimestampNotificationDecorator(NotificationContent wrapped, ZonedDateTime generatedAt) {
+    super(wrapped);
+    this.timestamp = FORMAT.format(generatedAt);
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the decorator package compiled fine on its own, which is why I did not notice.
+    But <code>NotificationService</code> lives in a <i>different package</i> and is not a subclass, so
+    <code>new TimestampNotificationDecorator(...)</code> would not compile there:
+    <code>has protected access</code>. I proved it by writing the test inside the <code>service</code> package: the build
+    failed until the constructor became <code>public</code>. Note that <code>SignatureNotificationDecorator</code> already
+    had a public constructor, so the two classes disagreed with each other.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: the 4 access levels, and who may call a constructor</div>
+      <table>
+        <tr><th>Modifier</th><th>Who can use it</th></tr>
+        <tr><td><code>public</code></td><td>everyone</td></tr>
+        <tr><td><code>protected</code></td><td>same package <b>+ subclasses</b> (a subclass calls it via <code>super(...)</code>)</td></tr>
+        <tr><td><i>(none)</i></td><td>same package only</td></tr>
+        <tr><td><code>private</code></td><td>same class only</td></tr>
+      </table>
+      <br>
+      <b>The rule of thumb here:</b> <code>NotificationDecorator</code>'s constructor is correctly
+      <code>protected</code>, because only subclasses ever call it through <code>super(wrapped)</code>. A concrete
+      decorator is created with <code>new</code> by outside code, so its constructor must be <code>public</code>.
+      Abstract base &rarr; <code>protected</code>; concrete class meant to be instantiated elsewhere &rarr; <code>public</code>.
+    </div>
+  </article>
+
+  <!-- 2.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">2.2</span>
+      <h3 class="entry-title">Null check used in one class but not the others</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">decorator/NotificationDecorator.java &middot; decorator/SimpleNotification.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">// SignatureNotificationDecorator: good
+this.signature = Objects.requireNonNull(signature, "signature");
+
+// NotificationDecorator: no check
+protected NotificationDecorator(NotificationContent notificationContent) {
+    wrapped = notificationContent;
+}
+
+// SimpleNotification: no check, and the fields are not final
+private String title;
+private String body;</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">protected NotificationDecorator(NotificationContent wrapped) {
+    this.wrapped = Objects.requireNonNull(wrapped, "wrapped");
+}
+
+private final String title;
+private final String body;
+
+public SimpleNotification(String title, String body) {
+    this.title = Objects.requireNonNull(title, "title");
+    this.body = Objects.requireNonNull(body, "body");
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> <code>wrapped</code> is the most important field in the whole pattern, and it
+    was the one left unchecked. With a <code>null</code> wrapped object, construction succeeds and the
+    <code>NullPointerException</code> appears later inside <code>getBody()</code>, one layer down the chain, where the stack
+    trace points at the wrong class. The non-final fields in <code>SimpleNotification</code> are a smaller issue: a
+    decorated message should never change after it is built, and <code>final</code> makes the compiler enforce that.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>Objects.requireNonNull</code> (you asked about this one)</div>
+      <pre style="background:transparent;border:0;padding:0">public static &lt;T&gt; T requireNonNull(T obj, String message)</pre>
+      It returns the value if it is not null, and throws <code>NullPointerException(message)</code> if it is. Because it
+      <i>returns</i> the value, it fits straight into an assignment: <code>this.x = requireNonNull(x, "x")</code>.
+      <ul class="tight">
+        <li><b>Why not <code>if (x == null) throw ...</code>?</b> Same behaviour, one line instead of three, and it is the
+        standard idiom every Java reviewer recognises.</li>
+        <li><b>Why the message?</b> Without it you get a bare <code>NullPointerException</code> with no field name. With it,
+        the exception says <code>wrapped</code>, and you know exactly what was missing.</li>
+        <li><b>Where to put it:</b> in the constructor, so a broken object can never exist. This is called
+        <i>failing fast</i>: crash at the mistake, not three classes later.</li>
+        <li><b>When to skip it:</b> for genuinely optional values. In <code>Notification</code> the
+        <code>idempotencyKey</code> is deliberately not checked, because <code>null</code> is a valid value there
+        ("no deduplication").</li>
+      </ul>
+      Related: <code>Objects.requireNonNullElse(x, fallback)</code> returns a default instead of throwing.
+    </div>
+  </article>
+
+  <!-- 2.3 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">2.3</span>
+      <h3 class="entry-title">Missing <code>@Override</code> on the overridden method</h3>
+      <span class="chip style">Safety net</span>
+    </div>
+    <div class="file">decorator/TimestampNotificationDecorator.java &middot; decorator/SignatureNotificationDecorator.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public String getBody(){
+    return wrapped.getBody()+"\n\n"+signature;
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@Override
+public String getBody(){
+    return wrapped.getBody()+"\n\n"+signature;
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the code works, but it loses a safety net. <code>@Override</code> tells the
+    compiler "this must be replacing a parent method". Type <code>getbody()</code> or <code>getBody(String x)</code> by
+    accident and, without the annotation, you have quietly created a <b>new</b> method: the parent's version keeps running,
+    the decorator adds nothing, and nothing fails until a user notices the signature is missing. With
+    <code>@Override</code>, it does not compile. You had used it correctly in <code>NotificationDecorator</code>, so this
+    was about being consistent.</p>
+  </article>
+
+  <!-- 2.4 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">2.4</span>
+      <h3 class="entry-title">Missing space in the output text</h3>
+      <span class="chip style">Polish</span>
+    </div>
+    <div class="file">decorator/TimestampNotificationDecorator.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">return wrapped.getBody() + "\n\nTime:" + timestamp;
+// Time:21 Sep 2026, 10:15:32 UTC</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">return wrapped.getBody() + "\n\nTime: " + timestamp;
+// Time: 21 Sep 2026, 10:15:32 UTC</pre>
+
+    <p class="why"><b>Why it was wrong:</b> this text is what the customer reads in an SMS. Same class of mistake as the
+    missing <code>": "</code> in the exception messages from round 1 (entry 1.11): when you concatenate, the separator is
+    part of your string, never automatic.</p>
+  </article>
+
+  <!-- 2.5 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">2.5</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">decorator/*.java</div>
+
+    <ul class="tight">
+      <li><b>The pattern is correct:</b> <code>NotificationDecorator implements NotificationContent</code> <i>and</i>
+      holds a <code>NotificationContent</code>. That "is-a + has-a" pair is what lets decorators wrap each other endlessly.</li>
+      <li><b>The base class forwards both methods</b>, so each decorator overrides only <code>getBody()</code> and the
+      title passes through untouched. Verified by test.</li>
+      <li><b><code>protected final NotificationContent wrapped</code></b>: subclasses can read it, nobody can swap it.</li>
+      <li><b>The timestamp is formatted in the constructor</b>, not inside <code>getBody()</code>, so two calls always
+      return the same text. This is a genuinely good decision, explained below.</li>
+      <li><b><code>DateTimeFormatter</code> as <code>private static final</code></b> with an explicit <code>Locale</code>:
+      exactly right, explained below.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>DateTimeFormatter</code> (you asked about this one)</div>
+      <pre style="background:transparent;border:0;padding:0">private static final DateTimeFormatter FORMAT =
+        DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm:ss z", Locale.ENGLISH);</pre>
+      It converts a date/time object into text (<code>format</code>) or text back into one (<code>parse</code>).
+      Four things about the line you wrote, all of which you got right:
+      <ul class="tight">
+        <li><b><code>static final</code> is correct.</b> <code>DateTimeFormatter</code> is <b>immutable and thread-safe</b>,
+        so one shared instance serves every request. Building a new one per call would be pure waste. (This is the big
+        difference from the old <code>SimpleDateFormat</code>, which is <i>not</i> thread-safe: sharing one across threads
+        silently produces corrupted dates. That class is a classic source of production bugs; <code>DateTimeFormatter</code>
+        is its safe replacement.)</li>
+        <li><b>The pattern letters:</b> <code>dd</code> = 2-digit day, <code>MMM</code> = short month name ("Sep"),
+        <code>yyyy</code> = year, <code>HH</code> = hour 00-23 (<code>hh</code> would be 12-hour and need AM/PM),
+        <code>mm</code> = minutes, <code>ss</code> = seconds, <code>z</code> = time-zone name ("UTC", "IST").
+        Case matters: <code>MM</code> is the month number, <code>mm</code> is minutes. Swapping them is a classic bug.</li>
+        <li><b><code>Locale.ENGLISH</code> matters.</b> <code>MMM</code> is translated using the locale. Without an explicit
+        one, the JVM's default is used, so the same code could print "Sep" on your laptop and something else on a server
+        configured differently. Passing the locale makes the output independent of where it runs.</li>
+        <li><b><code>z</code> requires a zoned type.</b> That is why the constructor takes a <code>ZonedDateTime</code>.
+        An <code>Instant</code> or <code>LocalDateTime</code> carries no zone, and formatting one with <code>z</code> throws
+        <code>UnsupportedTemporalTypeException</code> at runtime.</li>
+      </ul>
+      <b>Why formatting in the constructor is the right call:</b> if <code>getBody()</code> formatted the time each call,
+      two calls a second apart would return different text, and the message saved in the database could differ from the one
+      that was sent. Format once, store the <code>String</code>.
+    </div>
+  </article>
+</section>
+
+<!-- ============================ ROUND 3 ============================ -->
+<section class="round" id="round-3">
+  <div class="round-head">
+    <h2>Round 3 &middot; retry package</h2>
+    <span class="round-meta">21 Sep 2026 &middot; 2 issues, 0 logic bugs &middot; verified with 6 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>Best round so far: the logic was 100% correct.</b> Backoff maths, the cap, the overflow case, argument validation
+    and the retryable test all passed first time, including two edge cases I did not write on purpose but got for free
+    (see 3.3). The only fixes were a misspelled method name and two messages that described the wrong boundary.
+  </div>
+
+  <!-- 3.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">3.1</span>
+      <h3 class="entry-title">Misspelled method name in a public interface</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">retry/RetryPolicy.java &middot; retry/ExponentialBackoffRetryPolicy.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">// RetryPolicy
+boolean isRetrayble(Throwable failure);
+
+// ExponentialBackoffRetryPolicy
+@Override
+public boolean isRetrayble(Throwable failure) {
+    return failure instanceof NotificationDeliveryException delivery &amp;&amp; delivery.isRetryable();
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">boolean isRetryable(Throwable failure);</pre>
+
+    <p class="why"><b>Why it was wrong:</b> it compiled, because the typo was in both files. But this is a
+    <b>public API name</b>: the engine will call <code>retryPolicy.isRetryable(failure)</code>, and every future
+    implementation must repeat the typo forever. Worse, one line below it, the correctly spelled
+    <code>delivery.isRetryable()</code> appears, so the same idea had two spellings in a single method. Same lesson as
+    <code>cretedAt</code> in round 1 (entry 1.8): a name you type once is read a hundred times.</p>
+  </article>
+
+  <!-- 3.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">3.2</span>
+      <h3 class="entry-title">Messages that describe the wrong boundary</h3>
+      <span class="chip style">Polish</span>
+    </div>
+    <div class="file">retry/ExponentialBackoffRetryPolicy.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">if (maxDelay.compareTo(initialDelay) &lt; 0)
+    throw new IllegalArgumentException("maxDelay must be greater than initialDelay");
+// but the check ALLOWS maxDelay == initialDelay
+
+if (failedAttempt &lt; 1)
+    throw new IllegalArgumentException("failed attempt must be greater than 1");
+// but the check ALLOWS failedAttempt == 1</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">throw new IllegalArgumentException("maxDelay must be at least initialDelay");
+throw new IllegalArgumentException("failedAttempt must be at least 1");</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the code is right and the message lies about it. Someone reading
+    <i>"failed attempt must be greater than 1"</i> would think attempt 1 is invalid and go hunting for a bug that does not
+    exist. It matters here: the tests use <code>Duration.ZERO</code> for both delays, which is legal precisely because
+    equal values are allowed. When a message states a boundary, it must match the <code>&lt;</code> vs
+    <code>&lt;=</code> in the condition.</p>
+  </article>
+
+  <!-- 3.3 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">3.3</span>
+      <h3 class="entry-title">What was already right (including two things you got for free)</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">retry/*.java</div>
+
+    <ul class="tight">
+      <li><b>All validation in the constructor.</b> A bad value in <code>application.yml</code> now fails at startup,
+      not during a real outage at 2am.</li>
+      <li><b>The overflow guard.</b> <code>millis &gt;= maxDelay.toMillis()</code> is checked <i>before</i> the cast, so
+      attempt 5000 returns the cap instead of a garbage value. Verified with <code>Integer.MAX_VALUE</code>.</li>
+      <li><b><code>null</code> is handled without a single null check</b>, because <code>instanceof</code> on
+      <code>null</code> is <code>false</code>. <code>isRetryable(null)</code> returns <code>false</code> rather than
+      throwing.</li>
+      <li><b>Only explicitly retryable failures are retried.</b> An <code>IllegalStateException</code> (a bug) is not
+      retried three times for nothing.</li>
+      <li><b><code>@Override</code> on all three methods</b>, after round 2. That is a corrected habit sticking.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: pattern matching for <code>instanceof</code> (you asked about this one)</div>
+      <pre style="background:transparent;border:0;padding:0">return failure instanceof NotificationDeliveryException delivery &amp;&amp; delivery.isRetryable();</pre>
+      Java 16+ lets you declare a variable inside the <code>instanceof</code> check. It replaces three steps with one:
+      <pre style="background:transparent;border:0;padding:0">// the old way
+if (failure instanceof NotificationDeliveryException) {          // 1. test
+    NotificationDeliveryException d = (NotificationDeliveryException) failure;   // 2. cast
+    return d.isRetryable();                                      // 3. use
+}
+return false;</pre>
+      The variable <code>delivery</code> is called a <b>pattern variable</b>. Two rules make this line safe:
+      <ul class="tight">
+        <li><b><code>instanceof</code> is <code>false</code> for <code>null</code></b>, always, without throwing. So a
+        <code>null</code> failure short-circuits to <code>false</code>.</li>
+        <li><b><code>&amp;&amp;</code> short-circuits:</b> the right-hand side runs <i>only</i> if the left side was
+        <code>true</code>. That is what guarantees <code>delivery</code> is assigned before it is used. The compiler
+        enforces this: with <code>||</code> instead of <code>&amp;&amp;</code>, the same line would not compile, because
+        <code>delivery</code> would be in scope where the type check had failed.</li>
+      </ul>
+      Scope is exactly where the compiler can prove the test passed: after <code>&amp;&amp;</code>, or inside the
+      <code>if</code> body. Related modern forms: <code>case NotificationDeliveryException d -&gt; ...</code> in a
+      <code>switch</code>, and record patterns like <code>if (o instanceof Point(int x, int y))</code>.
+    </div>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>Duration</code> and <code>toMillis()</code> (you asked about this one)</div>
+      <code>Duration</code> is an <b>immutable</b> amount of time, stored internally as seconds + nanoseconds. Every
+      method returns a new instance; nothing is ever modified in place.
+      <table>
+        <tr><th>Call</th><th>Does</th></tr>
+        <tr><td><code>Duration.ofSeconds(1).toMillis()</code></td><td>&rarr; <code>1000</code> (a <code>long</code>, unwrapped so you can do maths)</td></tr>
+        <tr><td><code>Duration.ofMillis(1500)</code></td><td>builds a Duration from a number</td></tr>
+        <tr><td><code>d.isNegative()</code> / <code>d.isZero()</code></td><td>the readable way to validate</td></tr>
+        <tr><td><code>a.compareTo(b) &lt; 0</code></td><td>"a is shorter than b" (Durations are <code>Comparable</code>, so no <code>&lt;</code> operator)</td></tr>
+        <tr><td><code>Duration.ZERO</code></td><td>the shared zero-length constant</td></tr>
+      </table>
+      <br>
+      <b>Why your code converts at all:</b> you cannot multiply a <code>Duration</code> by <code>2.0</code>. There is a
+      <code>multipliedBy(long)</code>, but the multiplier here is a <code>double</code>. So the line drops to plain
+      numbers, does the maths, and converts back:
+      <pre style="background:transparent;border:0;padding:0">double millis = initialDelay.toMillis() * Math.pow(multiplier, failedAttempt - 1);
+...
+return Duration.ofMillis((long) millis);</pre>
+      Two details worth knowing:
+      <ul class="tight">
+        <li><b><code>Math.pow</code> returns <code>double</code></b>, and a huge exponent gives
+        <code>Double.POSITIVE_INFINITY</code> instead of wrapping around to a negative number. Comparisons against
+        Infinity still work, which is why your cap check saves the day.</li>
+        <li><b>The <code>(long)</code> cast truncates</b>, it does not round: <code>(long) 149.9</code> is
+        <code>149</code>. Harmless for a retry delay; dangerous if you ever do the same with money. For money, use
+        <code>BigDecimal</code>, never <code>double</code>.</li>
+      </ul>
+      Also remember <code>Thread.sleep()</code> takes milliseconds, which is why the engine will call
+      <code>delay.toMillis()</code> again later.
+    </div>
+  </article>
+</section>
+
+<!-- ============================ ROUND 4 ============================ -->
+<section class="round" id="round-4">
+  <div class="round-head">
+    <h2>Round 4 &middot; strategy package (channels)</h2>
+    <span class="round-meta">23 Sep 2026 &middot; 1 issue + 1 unfinished class &middot; verified with 3 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>The four channels are correct.</b> Each declares its own type, each is a <code>@Component</code> so Spring can find
+    it, and none of them logs the message body. The interface fix (returning <code>NotificationType</code> instead of
+    <code>NotificationChannel</code>) was the right call: that single change is what makes the resolver possible.
+    One real bug in the log text, and the resolver is still empty.
+  </div>
+
+  <!-- 4.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">4.1</span>
+      <h3 class="entry-title">Missing spaces around <code>{}</code> in every log message</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">strategy/*.java (all four channels)</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">log.info("[EMAIL] delivered notification{} to the user{}",
+        notification.getNotificationId(), notification.getUserId());
+
+// actually printed:
+// [EMAIL] delivered notification27e84daa-e6d4-478a-bb22-1b845ab1bf9e to the useruser-1
+
+// PushNotificationChannel had it on the other side:
+log.info("[PUSH] delivered notification {}to the user{}", ...);</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">log.info("[EMAIL] delivered notification {} to the user {}",
+        notification.getNotificationId(), notification.getUserId());
+
+// [EMAIL] delivered notification 27e84daa-e6d4-478a-bb22-1b845ab1bf9e to the user user-1</pre>
+
+    <p class="why"><b>Why it was wrong:</b> <code>{}</code> is replaced by the value <i>exactly</i>, with no padding, so the
+    id runs into the word before it. I proved it with a test that captures the log output: the assertion failed with
+    <code>notification27e84daa...</code>. Logs are searched with tools that split on whitespace, so a glued-together id is
+    genuinely harder to grep. <b>Third round in a row for this same family of mistake</b>: missing <code>": "</code> in
+    exception messages (1.11), missing space after <code>"Time:"</code> (2.4), now this. The lesson is the same every time:
+    <b>when you build a string from parts, the separator is your job.</b></p>
+  </article>
+
+  <!-- 4.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">4.2</span>
+      <h3 class="entry-title">The resolver is still empty, so the pattern is not wired up yet</h3>
+      <span class="chip blocker">Unfinished</span>
+    </div>
+    <div class="file">factory/NotificationChannelResolver.java</div>
+
+    <div class="label bad">Current state</div>
+<pre class="bad">public class NotificationChannelResolver {
+}</pre>
+
+    <p class="why"><b>Why it matters:</b> the four channels are only <i>half</i> of the Strategy pattern. Without the
+    resolver nothing can choose between them, and the engine would be forced back into the
+    <code>if (type == EMAIL) ... else if (type == SMS) ...</code> chain the whole pattern exists to remove. What it needs:
+    take <code>List&lt;NotificationChannel&gt;</code> in the constructor (Spring injects every channel bean), build a
+    <code>Map&lt;NotificationType, NotificationChannel&gt;</code> keyed by <code>supportedType()</code>, throw at startup if
+    two channels claim the same type, and throw <code>UnsupportedNotificationChannelException</code> when
+    <code>resolve()</code> gets a type with no channel.</p>
+  </article>
+
+  <!-- 4.3 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">4.3</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">strategy/*.java</div>
+
+    <ul class="tight">
+      <li><b>The interface now returns <code>NotificationType</code>.</b> Each channel declares its own key, so the resolver
+      never needs to know a single concrete class name. That is what makes adding WhatsApp a one-class change.</li>
+      <li><b>All four types are covered exactly once</b>, verified by a test that compares against
+      <code>NotificationType.values()</code>: if you add a value to the enum and forget the channel, that test fails.</li>
+      <li><b>No channel logs <code>getContent()</code>.</b> Verified by a test for all four. In a banking system the body
+      holds OTPs and balances, and log files are widely readable.</li>
+      <li><b><code>@Component</code> on every channel</b>, so Spring's <code>List&lt;NotificationChannel&gt;</code> injection
+      will find them all.</li>
+      <li><b><code>@Override</code> on every method</b>: three rounds running now.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>@Slf4j</code> and logging (you asked about this one)</div>
+      <pre style="background:transparent;border:0;padding:0">@Slf4j
+public class EmailNotificationChannel implements NotificationChannel { ...
+    log.info("[EMAIL] delivered notification {} to the user {}", id, userId);</pre>
+      <b>What the annotation does:</b> at compile time Lombok inserts exactly one line for you:
+      <pre style="background:transparent;border:0;padding:0">private static final org.slf4j.Logger log =
+        org.slf4j.LoggerFactory.getLogger(EmailNotificationChannel.class);</pre>
+      That is all. The variable is called <code>log</code>, which is why you can use it without declaring anything.
+      <code>static final</code> matters: one logger per class, shared by every instance, created once.
+      <ul class="tight">
+        <li><b>SLF4J is a facade, not a logging library.</b> Your code talks to the SLF4J API; the actual writing is done by
+        whatever implementation is on the classpath, which for Spring Boot is <b>Logback</b>. Swap the implementation and
+        not one line of your code changes. (Same idea as your <code>NotificationChannel</code> interface: code against the
+        abstraction.)</li>
+        <li><b>Why <code>{}</code> instead of <code>+</code>:</b> with
+        <code>log.debug("x " + expensive())</code> the string is built <i>every time</i>, even when debug logging is off.
+        With <code>log.debug("x {}", expensive())</code> the formatting happens only if the level is enabled. It also keeps
+        the message text constant, which lets log tools group identical messages.</li>
+        <li><b>Levels, from noisiest to most serious:</b> <code>trace</code>, <code>debug</code>, <code>info</code>,
+        <code>warn</code>, <code>error</code>. Rule of thumb: <code>info</code> = a normal business event worth keeping
+        ("delivered"), <code>warn</code> = recoverable trouble (a retry), <code>error</code> = something that needs a human.
+        Set the threshold in <code>application.yml</code>:
+        <code>logging.level.org.example.notificationservice: DEBUG</code>.</li>
+        <li><b>Exceptions go last, with no <code>{}</code>:</b> <code>log.error("failed for {}", id, ex)</code> prints the
+        full stack trace. Writing <code>ex.getMessage()</code> instead throws away the stack trace, which is the part you
+        actually need.</li>
+        <li><b>Never log secrets.</b> OTPs, passwords, full card or account numbers. This is why your channels log the id
+        and user but not the content.</li>
+        <li><b>Alternative logger name:</b> <code>LoggerFactory.getLogger("NOTIFICATION_AUDIT")</code> creates a logger with
+        a name of your choosing rather than the class name, so logback can route those lines to a separate file. You will
+        want that in <code>NotificationAuditListener</code> next round.</li>
+      </ul>
+      <b>Why not <code>System.out.println</code>:</b> no timestamp, no level, no logger name, no thread, cannot be filtered
+      or switched off, and it does not go to the log file the ops team reads.
+    </div>
+  </article>
+</section>
+
+<!-- ROUND-INSERT-POINT: new rounds are added here -->
+
+<!-- ============================ CONCEPT INDEX ============================ -->
+<section id="concepts">
+  <h2>Concept index</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Concept</th><th>One-line meaning</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Encapsulated state change</td><td>Private field + one guarded method = no illegal state anywhere</td><td>1.1</td></tr>
+        <tr><td>Injected time (<code>Instant now</code>)</td><td>Pass time in instead of calling <code>Instant.now()</code>, so tests are deterministic</td><td>1.1</td></tr>
+        <tr><td>Same-type parameter trap</td><td>The compiler cannot catch swapped <code>String</code>s: keep one order</td><td>1.4</td></tr>
+        <tr><td><code>this.</code> vs parameter</td><td>Without <code>this.</code> you assign to a local that is thrown away</td><td>1.5</td></tr>
+        <tr><td>Create vs restore</td><td>Factory generates a new object; builder rebuilds a stored one</td><td>1.6</td></tr>
+        <tr><td>Fail fast (<code>requireNonNull</code>)</td><td>Throw at the broken line, not three classes later</td><td>1.7</td></tr>
+        <tr><td>Java <code>record</code></td><td>Immutable data carrier with generated accessors; ideal for DTOs</td><td>1.9</td></tr>
+        <tr><td>Jackson visibility</td><td>JSON is built from public getters, not from fields</td><td>1.9</td></tr>
+        <tr><td>Static factory + private constructor</td><td><code>retryable(...)</code> reads better than <code>new X(..., true, ...)</code></td><td>1.10</td></tr>
+        <tr><td><code>@Slf4j</code> / SLF4J</td><td>Lombok adds a <code>static final</code> logger; SLF4J is a facade over Logback</td><td>4.3</td></tr>
+        <tr><td><code>{}</code> log placeholders</td><td>Formatting happens only if the level is on; keeps the message constant</td><td>4.3</td></tr>
+        <tr><td>Log levels</td><td><code>info</code> business event, <code>warn</code> recoverable, <code>error</code> needs a human</td><td>4.3</td></tr>
+        <tr><td>Never log secrets</td><td>OTPs, balances and card numbers must not reach a log file</td><td>4.3</td></tr>
+        <tr><td>Pattern matching <code>instanceof</code></td><td>Test, cast and name a variable in one expression (Java 16+)</td><td>3.3</td></tr>
+        <tr><td><code>&amp;&amp;</code> short-circuit</td><td>Right side runs only if the left was true: what makes the pattern variable safe</td><td>3.3</td></tr>
+        <tr><td><code>instanceof</code> and <code>null</code></td><td>Always <code>false</code>, never throws: free null handling</td><td>3.3</td></tr>
+        <tr><td><code>Duration</code> API</td><td>Immutable; <code>toMillis()</code> to calculate, <code>ofMillis()</code> to return, <code>compareTo</code> to compare</td><td>3.3</td></tr>
+        <tr><td><code>Math.pow</code> overflow</td><td>Returns <code>Infinity</code>, so a cap check still works</td><td>3.3</td></tr>
+        <tr><td><code>(long)</code> cast</td><td>Truncates, does not round: never use <code>double</code> for money</td><td>3.3</td></tr>
+        <tr><td>Access modifiers on constructors</td><td>Abstract base <code>protected</code>; concrete class <code>public</code></td><td>2.1</td></tr>
+        <tr><td><code>Objects.requireNonNull</code></td><td>Returns the value or throws a named NPE, right at the mistake</td><td>2.2</td></tr>
+        <tr><td><code>@Override</code></td><td>Compiler proof that you really are replacing a parent method</td><td>2.3</td></tr>
+        <tr><td><code>DateTimeFormatter</code></td><td>Immutable and thread-safe, so <code>static final</code>; always pass a <code>Locale</code></td><td>2.5</td></tr>
+        <tr><td>Compute once, store the result</td><td>Format in the constructor so output never changes between calls</td><td>2.5</td></tr>
+        <tr><td>is-a + has-a (Decorator)</td><td>Implement the interface <i>and</i> hold one: that is what allows stacking</td><td>2.5</td></tr>
+        <tr><td>Exhaustive <code>switch</code></td><td>No <code>default</code> over an enum = compiler catches new values</td><td>1.12</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================ CHECKLIST ============================ -->
+<section id="checklist">
+  <h2>Self-check list</h2>
+  <p class="sub">Run through this before asking for a review. Every line comes from a mistake above.</p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Check</th><th>From</th></tr></thead>
+      <tbody>
+        <tr><td>Does every field I declared actually get set from a parameter (none hardcoded to <code>null</code>)?</td><td>1.2</td></tr>
+        <tr><td>Does every method I wrote get called by something, or is it dead code?</td><td>1.1</td></tr>
+        <tr><td>Is every parameter of every method actually used in its body?</td><td>1.3, 1.5</td></tr>
+        <tr><td>Do same-type arguments (<code>title</code>, <code>content</code>) keep one order everywhere?</td><td>1.4</td></tr>
+        <tr><td>Did I write <code>this.x = x</code>, not <code>x = x</code>?</td><td>1.5</td></tr>
+        <tr><td>Can an object be built in an invalid state through some other constructor?</td><td>1.7</td></tr>
+        <tr><td>Are required fields null-checked, and optional ones marked with a comment?</td><td>1.7</td></tr>
+        <tr><td>Do private fields that others need have getters (or is it a <code>record</code>)?</td><td>1.9, 1.10</td></tr>
+        <tr><td>Field names: <code>camelCase</code>, spelled correctly (they become public getters)?</td><td>1.8</td></tr>
+        <tr><td>Do exception messages have <code>": "</code> before the value?</td><td>1.11</td></tr>
+        <tr><td>Can classes in <b>other packages</b> actually call my constructors (<code>public</code>, not <code>protected</code>)?</td><td>2.1</td></tr>
+        <tr><td>Is <code>@Override</code> on every method that overrides a parent method?</td><td>2.3</td></tr>
+        <tr><td>Are sibling classes consistent (same null checks, same access, same naming)?</td><td>2.2</td></tr>
+        <tr><td>Can fields be <code>final</code>? If nothing changes them, make it impossible.</td><td>2.2</td></tr>
+        <tr><td>Do concatenated strings include the separator (<code>": "</code>, <code>"Time: "</code>)?</td><td>1.11, 2.4</td></tr>
+        <tr><td>Do log messages have a space on <b>both</b> sides of every <code>{}</code>?</td><td>4.1</td></tr>
+        <tr><td>Did I finish every class in the package, or is one still an empty shell?</td><td>4.2</td></tr>
+        <tr><td>Are public method names spelled correctly? (every caller repeats them forever)</td><td>1.8, 3.1</td></tr>
+        <tr><td>Does each error message match its condition (<code>&lt;</code> vs <code>&lt;=</code>, "at least" vs "greater than")?</td><td>3.2</td></tr>
+        <tr><td>Is the same idea spelled the same way everywhere (<code>isRetryable</code> in both classes)?</td><td>3.1</td></tr>
+        <tr><td>Does it compile <i>and</i> would a test prove the behaviour, not just the syntax?</td><td>all</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  Companion files: <b>notification-service-uml.html</b> (design) &middot;
+  <b>notification-service-code-reference.pdf</b> (full worked code).
+  Updated after every review.
+</footer>
+</div>
+</body>
+</html>

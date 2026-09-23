@@ -1,17 +1,25 @@
 package org.example.notificationservice.exception;
 
-public class NotificationDeliveryException  extends RuntimeException{
-    // here retyrable is used because some error are retyrable like may be now the sms service is not available but
-    // next time or second it may be available so retrable is used here
-    private final boolean  retryble;
-    public NotificationDeliveryException(String message, boolean retyrable , Throwable cause){
-        super(message,cause);
-        this.retryble = retyrable;
+public class NotificationDeliveryException extends RuntimeException {
+    // here retryable is used because some errors are retryable, for example the SMS service may be
+    // unavailable right now but available a second later, so it is worth trying again
+    private final boolean retryable;
+
+    private NotificationDeliveryException(String message, boolean retryable, Throwable cause) {
+        super(message, cause);
+        this.retryable = retryable;
     }
-    public static NotificationDeliveryException retryble(String message, Throwable cause){
-        return new NotificationDeliveryException(message,true,cause);
+
+    public static NotificationDeliveryException retryable(String message, Throwable cause) {
+        return new NotificationDeliveryException(message, true, cause);
     }
-    public static NotificationDeliveryException permanent(String message, Throwable cause){
+
+    public static NotificationDeliveryException permanent(String message, Throwable cause) {
         return new NotificationDeliveryException(message, false, cause);
+    }
+
+    /** RetryPolicy asks this to decide whether another attempt makes sense. */
+    public boolean isRetryable() {
+        return retryable;
     }
 }

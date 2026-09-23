@@ -1,4 +1,19 @@
 package org.example.notificationservice.strategy;
 
-public class SmsNotificationChannel {
+import lombok.extern.slf4j.Slf4j;
+import org.example.notificationservice.domain.Notification;
+import org.example.notificationservice.enums.NotificationType;
+import org.springframework.stereotype.Component;
+@Slf4j
+@Component
+public class SmsNotificationChannel implements NotificationChannel{
+    @Override
+    public NotificationType supportedType() {
+        return NotificationType.SMS;
+    }
+
+    @Override
+    public void send(Notification notification) {
+        log.info("[SMS] delivered notification {} to the user {}",notification.getNotificationId(),notification.getUserId());
+    }
 }
