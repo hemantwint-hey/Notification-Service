@@ -101,6 +101,8 @@ and before writing a new package.</p>
     <li><a href="#round-2">Round 2 &middot; decorator package</a></li>
     <li><a href="#round-3">Round 3 &middot; retry package</a></li>
     <li><a href="#round-4">Round 4 &middot; strategy package</a></li>
+    <li><a href="#round-5">Round 5 &middot; channel resolver</a></li>
+    <li><a href="#round-6">Round 6 &middot; observer package</a></li>
     <li><a href="#concepts">Concept index</a></li>
     <li><a href="#checklist">Self-check list</a></li>
   </ul>
@@ -1020,6 +1022,294 @@ public class EmailNotificationChannel implements NotificationChannel { ...
   </article>
 </section>
 
+<!-- ============================ ROUND 5 ============================ -->
+<section class="round" id="round-5">
+  <div class="round-head">
+    <h2>Round 5 &middot; NotificationChannelResolver</h2>
+    <span class="round-meta">23 Sep 2026 &middot; 0 logic bugs &middot; verified with 7 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>Cleanest class of the project so far.</b> Nothing about the logic needed changing: the map is built once,
+    duplicates fail at startup, unknown types throw the right exception, and the map is published read-only.
+    The only edit was a double space inside an error message. Two of the tests passed for reasons worth understanding,
+    so they are written up below rather than listed as luck.
+  </div>
+
+  <!-- 5.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">5.1</span>
+      <h3 class="entry-title">Double space inside the error message</h3>
+      <span class="chip style">Polish</span>
+    </div>
+    <div class="file">factory/NotificationChannelResolver.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">throw new IllegalArgumentException("Two channels  registered for %s: %s and %s".formatted(...));</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">throw new IllegalArgumentException("Two channels registered for %s: %s and %s".formatted(...));</pre>
+
+    <p class="why"><b>Why it matters (a little):</b> same family as 1.11, 2.4 and 4.1, but the opposite direction:
+    one space too many instead of one too few. Worth noticing that I now hit this in <b>four rounds out of five</b>,
+    always in a string a human will read. Slow down on message text specifically.</p>
+  </article>
+
+  <!-- 5.2 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">5.2</span>
+      <h3 class="entry-title">What was already right, and why each choice is the correct one</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">factory/NotificationChannelResolver.java</div>
+
+    <ul class="tight">
+      <li><b><code>putIfAbsent</code> returning the previous value</b> is a neat way to detect a duplicate in one call:
+      it returns <code>null</code> when the key was free, and the existing value when it was not. No
+      <code>containsKey</code> + <code>get</code> double lookup.</li>
+      <li><b>The duplicate check throws in the constructor</b>, so the application refuses to start rather than silently
+      using whichever channel happened to be registered first. A bug that stops a deployment beats one that quietly
+      sends the wrong kind of message.</li>
+      <li><b>The error message names both classes</b> (<code>SmsNotificationChannel and ...</code>), which is exactly
+      what you need at 2am. Verified by test.</li>
+      <li><b>The map is built once in the constructor</b>, so <code>resolve()</code> is a single hash lookup, not a loop
+      over channels on every notification.</li>
+      <li><b><code>resolve(null)</code> does not blow up.</b> <code>EnumMap.get(null)</code> returns <code>null</code>
+      rather than throwing, so a null type gets the same clean
+      <code>UnsupportedNotificationChannelException</code> as an unmapped one. (Note the asymmetry:
+      <code>EnumMap.put(null, ...)</code> <i>does</i> throw <code>NullPointerException</code>.)</li>
+      <li><b>Order of the injected list does not matter</b>, because each channel declares its own key. Verified with a
+      shuffled list.</li>
+      <li><b>Spring really does inject all four.</b> I proved it by starting a small context that scans only
+      <code>strategy</code> and <code>factory</code>: 4 beans found, all 4 types resolvable.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>EnumMap</code> (you asked about this one)</div>
+      <pre style="background:transparent;border:0;padding:0">Map&lt;NotificationType, NotificationChannel&gt; map = new EnumMap&lt;&gt;(NotificationType.class);</pre>
+      A <code>Map</code> implementation built specifically for enum keys. Internally it is <b>just an array</b>, one slot
+      per enum constant, indexed by <code>ordinal()</code>. That gives it properties a <code>HashMap</code> cannot match:
+      <ul class="tight">
+        <li><b>No hashing, no collisions, no buckets.</b> <code>get</code> is an array index: about as fast as Java gets.</li>
+        <li><b>Tiny memory footprint</b>: 4 array slots here, versus a <code>HashMap</code>'s table plus one
+        <code>Node</code> object per entry.</li>
+        <li><b>Iteration follows enum declaration order</b> (EMAIL, SMS, PUSH, IN_APP), always. <code>HashMap</code> order
+        is arbitrary and can change between runs, which makes tests flaky.</li>
+        <li><b>The <code>.class</code> argument is required</b> because the map must know how many slots to allocate
+        before you put anything in. Generics are erased at runtime, so it cannot work the type out on its own.</li>
+        <li><b><code>null</code> keys are rejected</b> on <code>put</code> (there is no array slot for "no constant"),
+        while <code>get(null)</code> is safely <code>false</code>/<code>null</code>. That asymmetry is what makes your
+        <code>resolve(null)</code> behave nicely.</li>
+      </ul>
+      <b>Rule of thumb:</b> if the key is an enum, reach for <code>EnumMap</code> instead of <code>HashMap</code>. The
+      matching set is <code>EnumSet</code>, which stores members as bits in a single <code>long</code> and is dramatically
+      smaller than <code>HashSet</code>. You will want <code>EnumSet</code> when you write
+      <code>InMemoryNotificationPreferenceService</code>.
+    </div>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>Collections.unmodifiableMap</code> and safe publication</div>
+      <pre style="background:transparent;border:0;padding:0">this.channelByType = Collections.unmodifiableMap(map);</pre>
+      It returns a read-only <b>view</b>: calling <code>put</code> on it throws
+      <code>UnsupportedOperationException</code>. Two details worth knowing:
+      <ul class="tight">
+        <li><b>It wraps, it does not copy.</b> Anyone still holding the original <code>map</code> could change it and the
+        view would show the change. Here that cannot happen, because <code>map</code> is a local variable that never
+        escapes the constructor. That is what makes the pattern safe.</li>
+        <li><b>Why it matters beyond tidiness:</b> the resolver is a singleton shared by every request thread. A map that
+        nothing can modify after construction is automatically thread-safe, with no locks and no
+        <code>ConcurrentHashMap</code>. Combined with <code>final</code>, that is the standard recipe for a
+        read-only shared object.</li>
+        <li><code>Map.copyOf(map)</code> is the modern alternative: it makes a real immutable copy, but loses the
+        <code>EnumMap</code> implementation (and therefore the ordering and speed), so the wrapper is the better fit here.</li>
+      </ul>
+    </div>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>IllegalArgumentException</code> vs <code>IllegalStateException</code></div>
+      You chose <code>IllegalArgumentException</code> for the duplicate-channel case; the worked reference used
+      <code>IllegalStateException</code>. <b>Yours is defensible and arguably more correct:</b> the convention is
+      <i>IllegalArgument = the caller handed me bad input</i> (here, a list containing two channels for one type), and
+      <i>IllegalState = the object is in the wrong state for this call</i> (for example calling <code>resolve()</code>
+      before initialisation). Since the bad data arrives as a constructor argument, "illegal argument" fits. Either way
+      Spring wraps it in a <code>BeanCreationException</code> and the application stops, which is the point.
+    </div>
+  </article>
+</section>
+
+<!-- ============================ ROUND 6 ============================ -->
+<section class="round" id="round-6">
+  <div class="round-head">
+    <h2>Round 6 &middot; observer package</h2>
+    <span class="round-meta">24 Sep 2026 &middot; 1 blocker + 3 cleanups &middot; verified with 7 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>The design was right, one line broke all of it.</b> The event is a proper immutable snapshot, the publisher isolates
+    listener failures, and the metrics listener uses exactly the right data structures. But a single missing
+    <code>this.</code> meant <b>no listener was ever registered</b>, so the whole pattern silently did nothing.
+    It still compiled, and it still started.
+  </div>
+
+  <!-- 6.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">6.1</span>
+      <h3 class="entry-title">A missing <code>this.</code> made the publisher notify nobody</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">observer/NotificationEventPublisher.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">private final CopyOnWriteArrayList&lt;NotificationEventListener&gt; listeners = new CopyOnWriteArrayList&lt;&gt;();
+
+public NotificationEventPublisher(List&lt;NotificationEventListener&gt; listeners){
+    listeners.addAll(listeners);       // both names refer to the PARAMETER
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public NotificationEventPublisher(List&lt;NotificationEventListener&gt; listeners){
+    this.listeners.addAll(listeners);  // field  <-  parameter
+}</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the parameter is also called <code>listeners</code>, so inside the constructor
+    that name means the <i>parameter</i>, and the field is hidden (<b>shadowed</b>). The line therefore added the incoming
+    list to itself and left the field empty. It failed in two different ways depending on the caller:
+    <ul class="tight">
+      <li><b>With an immutable list</b> (<code>List.of(...)</code>, as in a test):
+      <code>UnsupportedOperationException</code>, straight away.</li>
+      <li><b>With Spring's injected list</b> (mutable): <b>no error at all</b>. The application starts, the three listeners
+      are created, <code>publish()</code> loops over an empty field, and nothing is ever audited, logged or counted.
+      My test proved it: after publishing a SENT event through the Spring-wired publisher, the metrics counter was
+      <code>0</code> instead of <code>1</code>.</li>
+    </ul>
+    The silent version is far worse: everything looks healthy, and the audit trail a bank is legally required to keep is
+    simply empty.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: shadowing, and when <code>this.</code> is compulsory</div>
+      Inside a constructor or method, a parameter with the same name as a field <b>wins</b>. The field is still there, but
+      the only way to reach it is <code>this.field</code>.
+      <ul class="tight">
+        <li><code>this.listeners = listeners;</code> &mdash; correct, and the reason nobody notices the danger: assignment
+        forces you to write <code>this.</code>, or the compiler warns that the assignment has no effect.</li>
+        <li><code>listeners.addAll(listeners);</code> &mdash; <b>no warning at all</b>, because calling a method on a
+        parameter is perfectly legal code. This is exactly why it slipped through.</li>
+      </ul>
+      <b>This is the second time the same root cause has appeared:</b> entry 1.5 was
+      <code>priority = notificationPriority;</code>, which assigned to a parameter instead of a field. The rule to carry
+      forward: <i>when a field and a parameter share a name, every reference to the field needs
+      <code>this.</code></i>. IntelliJ can flag this &mdash; turn on "Field access outside of constructor/setter" or simply
+      name the parameter differently (<code>initialListeners</code>) when you want the compiler to help you.
+    </div>
+  </article>
+
+  <!-- 6.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">6.2</span>
+      <h3 class="entry-title">Two loggers in one class, one of them unused</h3>
+      <span class="chip style">Cleanup</span>
+    </div>
+    <div class="file">observer/NotificationAuditListener.java &middot; observer/NotificationLoggingListener.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">@Slf4j                                    // creates a 'log' field that is never used
+@Component
+public class NotificationAuditListener implements NotificationEventListener {
+    public static final Logger AUDIT = LoggerFactory.getLogger("NOTIFICATION_AUDIT");
+
+// and in NotificationLoggingListener:
+import org.slf4j.Logger;          // unused
+import org.slf4j.LoggerFactory;   // unused</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@Component
+public class NotificationAuditListener implements NotificationEventListener {
+    private static final Logger AUDIT = LoggerFactory.getLogger("NOTIFICATION_AUDIT");</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the audit listener had <i>two</i> loggers: <code>log</code> from
+    <code>@Slf4j</code> (never used) and <code>AUDIT</code> (used). The next person to edit the class would reasonably
+    type <code>log.info(...)</code> and quietly send an audit record to the wrong destination. Deleting the annotation
+    removes the choice. <code>AUDIT</code> also does not need to be <code>public</code>: no other class should write into
+    this service's audit stream, so <code>private</code> keeps the channel under this class's control.</p>
+  </article>
+
+  <!-- 6.3 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">6.3</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">observer/*.java</div>
+
+    <ul class="tight">
+      <li><b><code>NotificationEvent</code> is a true snapshot.</b> I tested it: publish an event, then change the
+      notification's status, and the already-published event still shows the old value. A listener cannot reach back into
+      the notification, and cannot corrupt it.</li>
+      <li><b>No <code>title</code> or <code>content</code> in the event.</b> Verified: the body text never appears in the
+      event's <code>toString()</code>, so it cannot leak into a log line. In a bank that body holds OTPs.</li>
+      <li><b>Two <code>of(...)</code> factories, one delegating to the other</b> (<code>of(type, n, now)</code> calls
+      <code>of(type, n, null, now)</code>). The rule is written once.</li>
+      <li><b>The per-listener <code>try/catch</code> in <code>publish()</code></b>: a listener that throws is logged and
+      the loop continues. Verified with a deliberately broken listener.</li>
+      <li><b>The exception is logged with the throwable as the last argument</b>, no <code>{}</code> for it, so the full
+      stack trace is printed rather than just its message.</li>
+      <li><b>Logging listener splits levels correctly:</b> <code>warn</code> for FAILED and RETRYING,
+      <code>info</code> for the rest.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>LongAdder</code> (you asked about this one)</div>
+      A counter designed for <b>many threads incrementing at the same time</b>, which is exactly what a notification
+      service does.
+      <ul class="tight">
+        <li><b>Why not <code>long counter++</code>?</b> <code>++</code> is really three operations (read, add, write).
+        Two threads can read the same value and both write back the same result, so increments are silently lost.</li>
+        <li><b>Why not <code>AtomicLong</code>?</b> It is correct, but every thread fights over one memory location: each
+        one retries its compare-and-set until it wins. Under heavy contention that burns CPU.</li>
+        <li><b>What <code>LongAdder</code> does:</b> it keeps several internal cells and lets different threads increment
+        different cells, so they rarely collide. <code>sum()</code> adds the cells together when you ask for the total.
+        Trade-off: <b>much</b> faster writes, slightly slower and only approximately-instantaneous reads.</li>
+      </ul>
+      <b>Rule of thumb:</b> many writes and rare reads (a metrics counter) &rarr; <code>LongAdder</code>.
+      Need the exact value back from the operation itself (<code>incrementAndGet()</code>, an id generator) &rarr;
+      <code>AtomicLong</code>.
+    </div>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>LoggerFactory.getLogger("NAME")</code> vs <code>@Slf4j</code></div>
+      <code>@Slf4j</code> names the logger after the class. Passing a <b>string</b> instead creates a logger with a name
+      you choose, and the logger name is what logback routes on. So this line:
+      <pre style="background:transparent;border:0;padding:0">private static final Logger AUDIT = LoggerFactory.getLogger("NOTIFICATION_AUDIT");</pre>
+      lets you send every audit record to its own file, with its own retention, without touching Java code:
+      <pre style="background:transparent;border:0;padding:0">&lt;logger name="NOTIFICATION_AUDIT" level="INFO" additivity="false"&gt;
+    &lt;appender-ref ref="AUDIT_FILE"/&gt;
+&lt;/logger&gt;</pre>
+      That matters in banking, where audit trails must be kept far longer than ordinary application logs. The
+      <code>key=value</code> style you used (<code>event=... notificationId=...</code>) is also the right call: it stays
+      greppable and parses cleanly into log tools.
+    </div>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>CopyOnWriteArrayList</code></div>
+      A thread-safe list that makes a <b>fresh copy of the whole array on every write</b>. Reads take no lock at all.
+      <ul class="tight">
+        <li><b>Why it suits this class:</b> listeners are registered once at startup and then read on every single
+        publish. Expensive writes, free reads: exactly the right shape.</li>
+        <li><b>No <code>ConcurrentModificationException</code>:</b> an iteration walks the snapshot it started with, so a
+        listener may subscribe while a publish is running without breaking it.</li>
+        <li><code>addIfAbsent()</code> (which you used in <code>subscribe</code>) is specific to this class: it adds only
+        if the element is not already present, atomically. A plain <code>ArrayList</code> has no such method.</li>
+        <li><b>When not to use it:</b> lists with frequent writes. Copying the array per write would dominate.</li>
+      </ul>
+    </div>
+  </article>
+</section>
+
 <!-- ROUND-INSERT-POINT: new rounds are added here -->
 
 <!-- ============================ CONCEPT INDEX ============================ -->
@@ -1038,6 +1328,17 @@ public class EmailNotificationChannel implements NotificationChannel { ...
         <tr><td>Java <code>record</code></td><td>Immutable data carrier with generated accessors; ideal for DTOs</td><td>1.9</td></tr>
         <tr><td>Jackson visibility</td><td>JSON is built from public getters, not from fields</td><td>1.9</td></tr>
         <tr><td>Static factory + private constructor</td><td><code>retryable(...)</code> reads better than <code>new X(..., true, ...)</code></td><td>1.10</td></tr>
+        <tr><td>Shadowing / <code>this.</code></td><td>A parameter with the field's name hides it; method calls give no warning</td><td>6.1</td></tr>
+        <tr><td><code>LongAdder</code></td><td>Split counter for many concurrent writes; <code>sum()</code> to read</td><td>6.3</td></tr>
+        <tr><td><code>AtomicLong</code> vs <code>LongAdder</code></td><td>Need the value back from the increment, vs pure counting</td><td>6.3</td></tr>
+        <tr><td>Named loggers</td><td><code>getLogger("NAME")</code> lets logback route that stream to its own file</td><td>6.3</td></tr>
+        <tr><td><code>CopyOnWriteArrayList</code></td><td>Lock-free reads, copy on write: ideal for listener lists</td><td>6.3</td></tr>
+        <tr><td>Immutable event snapshot</td><td>Published data cannot change later, and cannot leak the body</td><td>6.3</td></tr>
+        <tr><td><code>EnumMap</code> / <code>EnumSet</code></td><td>Array-backed map for enum keys: faster, smaller, ordered by declaration</td><td>5.2</td></tr>
+        <tr><td><code>putIfAbsent</code> return value</td><td>Returns the existing value, so one call detects a duplicate</td><td>5.2</td></tr>
+        <tr><td><code>unmodifiableMap</code></td><td>Read-only view; immutable + <code>final</code> = thread-safe with no locks</td><td>5.2</td></tr>
+        <tr><td>IllegalArgument vs IllegalState</td><td>Bad input the caller passed, vs object in the wrong state</td><td>5.2</td></tr>
+        <tr><td>Fail fast at startup</td><td>Refusing to boot beats silently choosing the wrong channel</td><td>5.2</td></tr>
         <tr><td><code>@Slf4j</code> / SLF4J</td><td>Lombok adds a <code>static final</code> logger; SLF4J is a facade over Logback</td><td>4.3</td></tr>
         <tr><td><code>{}</code> log placeholders</td><td>Formatting happens only if the level is on; keeps the message constant</td><td>4.3</td></tr>
         <tr><td>Log levels</td><td><code>info</code> business event, <code>warn</code> recoverable, <code>error</code> needs a human</td><td>4.3</td></tr>
@@ -1072,7 +1373,7 @@ public class EmailNotificationChannel implements NotificationChannel { ...
         <tr><td>Does every method I wrote get called by something, or is it dead code?</td><td>1.1</td></tr>
         <tr><td>Is every parameter of every method actually used in its body?</td><td>1.3, 1.5</td></tr>
         <tr><td>Do same-type arguments (<code>title</code>, <code>content</code>) keep one order everywhere?</td><td>1.4</td></tr>
-        <tr><td>Did I write <code>this.x = x</code>, not <code>x = x</code>?</td><td>1.5</td></tr>
+        <tr><td>When a parameter shares a field's name, did I write <code>this.</code> on <b>every</b> use, including method calls like <code>this.list.addAll(list)</code>?</td><td>1.5, 6.1</td></tr>
         <tr><td>Can an object be built in an invalid state through some other constructor?</td><td>1.7</td></tr>
         <tr><td>Are required fields null-checked, and optional ones marked with a comment?</td><td>1.7</td></tr>
         <tr><td>Do private fields that others need have getters (or is it a <code>record</code>)?</td><td>1.9, 1.10</td></tr>
@@ -1084,10 +1385,12 @@ public class EmailNotificationChannel implements NotificationChannel { ...
         <tr><td>Can fields be <code>final</code>? If nothing changes them, make it impossible.</td><td>2.2</td></tr>
         <tr><td>Do concatenated strings include the separator (<code>": "</code>, <code>"Time: "</code>)?</td><td>1.11, 2.4</td></tr>
         <tr><td>Do log messages have a space on <b>both</b> sides of every <code>{}</code>?</td><td>4.1</td></tr>
+        <tr><td>Re-read every string a human will see: one space, no double space, no typo</td><td>1.11, 2.4, 4.1, 5.1</td></tr>
         <tr><td>Did I finish every class in the package, or is one still an empty shell?</td><td>4.2</td></tr>
         <tr><td>Are public method names spelled correctly? (every caller repeats them forever)</td><td>1.8, 3.1</td></tr>
         <tr><td>Does each error message match its condition (<code>&lt;</code> vs <code>&lt;=</code>, "at least" vs "greater than")?</td><td>3.2</td></tr>
         <tr><td>Is the same idea spelled the same way everywhere (<code>isRetryable</code> in both classes)?</td><td>3.1</td></tr>
+        <tr><td>Does the class have two ways to do the same thing (two loggers, two constructors)?</td><td>6.2</td></tr>
         <tr><td>Does it compile <i>and</i> would a test prove the behaviour, not just the syntax?</td><td>all</td></tr>
       </tbody>
     </table>
