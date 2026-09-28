@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification Service: Interview Questions</title>
+<style>
+  :root{
+    --bg:#f7f7f4;--surface:#fff;--surface-2:#f1f2ee;--text:#1c222c;--muted:#5b6573;
+    --border:#e0e2dd;--accent:#2f6fde;
+    --easy:#1f8f4e;--easy-bg:#e7f6ec;
+    --mid:#b8740a;--mid-bg:#fff2d9;
+    --hard:#c0392b;--hard-bg:#fdecea;
+    --tip:#7446d6;--tip-bg:#f1e9ff;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#13161b;--surface:#1b1f26;--surface-2:#232830;--text:#e6eaf0;--muted:#9aa4b2;
+      --border:#2e3440;--accent:#79a6ff;
+      --easy:#4fcf85;--easy-bg:#122a1d;
+      --mid:#f0b54a;--mid-bg:#33270f;
+      --hard:#ff8a78;--hard-bg:#331a17;
+      --tip:#b08cff;--tip-bg:#241a3d;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .page{max-width:1000px;margin:0 auto;padding:36px 20px 80px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 20px}
+  h2{font-size:20px;margin:46px 0 4px;padding-bottom:8px;border-bottom:2px solid var(--text)}
+  .section-note{color:var(--muted);font-size:14px;margin:0 0 14px}
+  code,pre{font-family:ui-monospace,Consolas,"Cascadia Mono",monospace}
+  code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:13px}
+  pre{margin:8px 0 0;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;
+      background:var(--surface-2);border:1px solid var(--border)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .qa{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:10px 0}
+  .q{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-weight:700;font-size:16px}
+  .q .num{color:var(--muted);font:700 12px/1.4 ui-monospace,monospace;min-width:26px}
+  .a{margin:8px 0 0 36px}
+  .a p{margin:6px 0}
+  .lvl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+  .lvl.easy{color:var(--easy);background:var(--easy-bg)}
+  .lvl.mid{color:var(--mid);background:var(--mid-bg)}
+  .lvl.hard{color:var(--hard);background:var(--hard-bg)}
+  .followup{margin:8px 0 0 36px;font-size:13.5px;color:var(--muted)}
+  .followup b{color:var(--text)}
+  .tip{background:var(--tip-bg);border-radius:8px;padding:12px 14px;margin:14px 0}
+  .tip .th{color:var(--tip);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  ul.tight{margin:6px 0;padding-left:20px}
+  ul.tight li{margin:3px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0;padding:0;list-style:none}
+  .toc a{font-size:13px;text-decoration:none;color:var(--text);background:var(--surface);
+         border:1px solid var(--border);border-radius:999px;padding:4px 10px}
+  .toc a:hover{border-color:var(--accent);color:var(--accent)}
+  footer{margin-top:50px;color:var(--muted);font-size:13px}
+  @media print{.toc{display:none}.qa,.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Interview Questions on This Project</h1>
+<p class="sub">What an interviewer can ask about the Notification Service, and how to answer. Difficulty:
+<span class="lvl easy">Basic</span> <span class="lvl mid">Common</span> <span class="lvl hard">Deep</span>.
+Answers are short on purpose: say this much, then stop and let them follow up.</p>
+
+<ul class="toc">
+  <li><a href="#pitch">0 · Pitching the project</a></li>
+  <li><a href="#patterns">1 · Design patterns</a></li>
+  <li><a href="#oop">2 · OOP &amp; SOLID</a></li>
+  <li><a href="#java">3 · Core Java</a></li>
+  <li><a href="#concurrency">4 · Concurrency</a></li>
+  <li><a href="#spring">5 · Spring</a></li>
+  <li><a href="#data">6 · Database &amp; JPA</a></li>
+  <li><a href="#reliability">7 · Reliability</a></li>
+  <li><a href="#testing">8 · Testing</a></li>
+  <li><a href="#scale">9 · Scaling it up</a></li>
+  <li><a href="#traps">10 · Trap questions</a></li>
+  <li><a href="#ask">11 · What to ask them</a></li>
+</ul>
+
+<h2 id="pitch">0 &middot; Pitching the project</h2>
+<p class="section-note">The first question is always "tell me about it". Have two versions ready.</p>
+
+<div class="card">
+  <b>30 seconds</b>
+  <p>"It is the notification microservice for a digital banking system. Other services send it a request &mdash; an OTP,
+  a debit alert, a card block &mdash; and it delivers that through the right channel: email, SMS, push or in-app.
+  It is built around three patterns: Strategy for the channels, Observer for audit and metrics, Decorator for the
+  message text. It has idempotency so the same bank transaction never notifies twice, and a retry policy with
+  exponential backoff for transient failures."</p>
+
+  <b style="display:block;margin-top:14px">2 minutes (add this)</b>
+  <p>"A request comes in over REST. The service validates it, checks the idempotency key so a retried bank event does
+  not produce a second SMS, builds the final text with decorators that add a timestamp and the bank's signature, saves
+  it, and checks the customer's channel preferences &mdash; although <code>CRITICAL</code> notifications like OTPs
+  override those. Then a separate engine does the delivery: it resolves the right channel from a map, sends, and on a
+  transient failure retries with exponential backoff. Every status change is persisted and published as an event to three
+  listeners: audit, logging and metrics. The domain model is kept free of JPA, so persistence sits behind a repository
+  interface."</p>
+  <div class="tip"><div class="th">Say this at the end</div>
+  "Two things I would add next: the recipient lookup, because the service only knows a user id today, and moving
+  delivery off the request thread so retries do not block the caller." Naming your own gaps reads as senior.</div>
+</div>
+
+<h2 id="patterns">1 &middot; Design patterns</h2>
+<p class="section-note">The core of the interview, because the project is built on three of them.</p>
+
+<div class="qa">
+  <div class="q"><span class="num">1.1</span><span>Which design patterns did you use and why?</span><span class="lvl easy">Basic</span></div>
+  <div class="a">
+    <p>Three, each answering a different question:</p>
+    <ul class="tight">
+      <li><b>Strategy</b> &mdash; "which implementation should send this?" One class per channel behind
+      <code>NotificationChannel</code>.</li>
+      <li><b>Observer</b> &mdash; "something happened, who needs to know?" Audit, logging and metrics listeners.</li>
+      <li><b>Decorator</b> &mdash; "how do I add behaviour to an object without changing its class?" Timestamp and
+      signature layered onto the message.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.2</span><span>How does Strategy remove the if/else?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Each channel declares which type it handles via <code>supportedType()</code>. Spring injects every
+    <code>NotificationChannel</code> bean into the resolver as a <code>List</code>, and the resolver builds an
+    <code>EnumMap&lt;NotificationType, NotificationChannel&gt;</code> once in its constructor. Delivery is then a map
+    lookup. Adding WhatsApp means one new class and one new enum value &mdash; the engine does not change.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "What if two channels claim the same type?" &rarr; The resolver throws in the
+  constructor, so the application refuses to start rather than silently picking one.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.3</span><span>Why Decorator and not just a helper method that appends text?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Because the additions are optional and composable. With decorators I can have timestamp only, signature only,
+    both, or later a masking decorator, in any order, chosen at runtime from config. A helper method would need a
+    boolean parameter per feature, and subclassing would need one class per combination.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "What makes it a Decorator and not just wrapping?" &rarr; The decorator
+  <i>implements the same interface</i> as the thing it wraps. That is what lets it be used anywhere the original was,
+  including inside another decorator.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.4</span><span>Why did you not use Observer to choose the channel?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Because they answer different questions. Observer broadcasts to <i>everyone</i> interested and ignores return
+    values; delivery needs <i>exactly one</i> handler and must know whether it succeeded. Using Observer there would mean
+    every channel sees every notification and each one decides whether to act &mdash; scattered logic, no single place
+    that knows what happened.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.5</span><span>Spring already has an event system. Why write your own Observer?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Honest answer: for this project it was to implement the pattern explicitly. In production I would use
+    <code>ApplicationEventPublisher</code> with <code>@EventListener</code>, which gives async handling via
+    <code>@Async</code> and transaction-bound events via <code>@TransactionalEventListener</code> for free. My version is
+    about thirty lines and swapping it would touch only the publisher.</p>
+  </div>
+  <div class="tip"><div class="th">Why this answer works</div>Interviewers like candidates who know the framework
+  alternative and can justify the choice, instead of pretending the hand-rolled version is automatically better.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.6</span><span>Is your resolver a Factory?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Strictly it is a <b>registry</b>: it does not create channels, Spring does, it looks one up by key. It sits in a
+    package called <code>factory</code> because it plays the "give me the right implementation" role a factory usually
+    plays. A real factory would <code>new</code> the object per call.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">1.7</span><span>Which other patterns appear in the code without being named?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <ul class="tight">
+      <li><b>Repository</b> (and Ports &amp; Adapters): the domain depends on <code>NotificationRepository</code>, the JPA
+      implementation sits behind it.</li>
+      <li><b>Facade</b>: <code>NotificationService</code> is one entry point over six collaborators.</li>
+      <li><b>Builder</b>: <code>Notification.restore()</code> for rebuilding from the database.</li>
+      <li><b>State machine</b>: <code>NotificationStatus.canTransition()</code>.</li>
+      <li><b>Template-method-ish</b>: <code>NotificationDecorator</code> forwards by default, subclasses override one method.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="oop">2 &middot; OOP and SOLID</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">2.1</span><span>Show me SOLID in your code.</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <ul class="tight">
+      <li><b>S</b> &mdash; the service orchestrates, the engine delivers, channels send, listeners react. Each has one reason to change.</li>
+      <li><b>O</b> &mdash; a new channel is a new class; no existing class is edited.</li>
+      <li><b>L</b> &mdash; any <code>NotificationChannel</code> works wherever the interface is used; decorators are usable
+      wherever <code>NotificationContent</code> is.</li>
+      <li><b>I</b> &mdash; <code>NotificationPreferenceService</code> exposes only <code>isChannelEnabled</code>; the setter
+      lives on the implementation.</li>
+      <li><b>D</b> &mdash; the service and engine depend on interfaces (repository, retry policy, preferences), never on
+      JPA or a concrete channel.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">2.2</span><span>Why is <code>Notification</code> a class but <code>NotificationRequest</code> a record?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p><code>Notification</code> has changing state (<code>status</code>, <code>updatedAt</code>) and rules that protect it,
+    so it needs a private constructor, a factory and <code>transitionTo()</code>. A record is immutable with public
+    accessors, which is perfect for a DTO that only carries data across a boundary.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">2.3</span><span>Why not expose the entity directly from the controller?</span><span class="lvl easy">Basic</span></div>
+  <div class="a">
+    <p>Three reasons: it would leak database structure into the API contract, so a column rename becomes a breaking API
+    change; it can expose fields clients should not see; and JPA entities can be lazy-loaded proxies that blow up during
+    serialisation. The DTO decouples the two.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">2.4</span><span>Why is the status change a method on the domain object rather than a setter?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>A setter would let any code put the object into an impossible state, like moving <code>SENT</code> back to
+    <code>PROCESSING</code>. <code>transitionTo()</code> consults the state machine and throws on an illegal move, so the
+    rule lives with the data it guards. That is encapsulation doing real work rather than just hiding a field.</p>
+  </div>
+</div>
+
+<h2 id="java">3 &middot; Core Java</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">3.1</span><span>Why <code>EnumMap</code> instead of <code>HashMap</code>?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Its keys are enum constants, so internally it is an array indexed by <code>ordinal()</code>: no hashing, no
+    collisions, less memory, and iteration in enum declaration order. <code>EnumSet</code> is the same idea, storing
+    membership as bits in a <code>long</code>.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">3.2</span><span>Why <code>EnumType.STRING</code> on the entity?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>The default is <code>ORDINAL</code>, which stores the enum's position. Insert a new constant in the middle later
+    and every existing row silently means something different. <code>STRING</code> stores <code>"EMAIL"</code>, so
+    reordering is harmless.</p>
+  </div>
+  <div class="followup"><b>Bonus:</b> I also pin the column to <code>varchar</code>, because Hibernate would otherwise
+  generate a MySQL <code>ENUM(...)</code> column, and <code>ddl-auto=update</code> never alters it when a new value is
+  added.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">3.3</span><span>Explain this line: <code>failure instanceof NotificationDeliveryException d &amp;&amp; d.isRetryable()</code></span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Pattern matching for <code>instanceof</code>, Java 16+: it tests the type and declares the cast variable in one
+    step. It is safe because <code>instanceof</code> is <code>false</code> for <code>null</code>, and
+    <code>&amp;&amp;</code> short-circuits, so <code>d</code> is only used when the test passed. With <code>||</code> it
+    would not compile.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">3.4</span><span>What is a functional interface, and where is one in your code?</span><span class="lvl easy">Basic</span></div>
+  <div class="a">
+    <p>An interface with exactly one abstract method, so a lambda can implement it.
+    <code>NotificationEventListener</code> is one: tests pass <code>event -&gt; list.add(event)</code> where a listener is
+    expected.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">3.5</span><span>Why inject a <code>Clock</code> instead of calling <code>Instant.now()</code>?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Testability. With a <code>Clock</code> bean, production uses the real clock and tests use
+    <code>Clock.fixed(...)</code>, so I can assert the exact timestamp inside a decorated message or an event. Calling
+    <code>Instant.now()</code> directly makes time an invisible global dependency.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">3.6</span><span>Checked or unchecked exceptions, and why?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>All mine are unchecked. A checked exception forces every layer in between to declare or wrap it, which pollutes
+    signatures for errors those layers cannot fix. Spring's own data and web exceptions are unchecked for the same
+    reason. Where recovery is genuinely possible, I encode it as data instead: the
+    <code>retryable</code> flag on <code>NotificationDeliveryException</code>.</p>
+  </div>
+</div>
+
+<h2 id="concurrency">4 &middot; Concurrency</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">4.1</span><span>Why <code>CopyOnWriteArrayList</code> for the listeners?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Listeners are written once at startup and read on every publish. That list copies the array on each write and
+    needs no lock for reads, so publishing is cheap and iteration can never throw
+    <code>ConcurrentModificationException</code> even if someone subscribes mid-publish.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">4.2</span><span>Why <code>LongAdder</code> and not <code>AtomicLong</code> or <code>long</code>?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p><code>long++</code> is read-modify-write, so concurrent increments are lost. <code>AtomicLong</code> is correct but
+    every thread contends on one memory location. <code>LongAdder</code> spreads increments across internal cells and sums
+    them on read: much faster under contention, at the cost of a slightly more expensive read. Counters are the textbook
+    case for it.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">4.3</span><span>Why <code>ConcurrentHashMap.compute()</code> in the preference service?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Because get-modify-put is a race: two threads disabling two different channels for the same user would each read
+    the same set and one write would erase the other. <code>compute()</code> runs the update atomically for that key,
+    while other keys stay unblocked. Returning <code>null</code> also removes the entry, so the map cleans itself up.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "Why build a new EnumSet inside instead of mutating?" &rarr; Because reads happen
+  without a lock. Replacing the value means a reader holding the old set still sees a consistent snapshot.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">4.4</span><span>Is your engine thread-safe?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>The engine itself holds no mutable state &mdash; only final collaborators &mdash; so it is safe to share. The
+    <code>Notification</code> object it mutates belongs to one request. What is <i>not</i> protected is two servers
+    processing the same notification at once; that needs optimistic locking with <code>@Version</code>, which I would add
+    when delivery moves to a queue.</p>
+  </div>
+</div>
+
+<h2 id="spring">5 &middot; Spring</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">5.1</span><span>Constructor injection or field injection?</span><span class="lvl easy">Basic</span></div>
+  <div class="a">
+    <p>Constructor, always. Dependencies become <code>final</code>, the object cannot exist half-built, missing
+    dependencies fail at startup, and the class can be unit-tested with plain <code>new</code>. Field injection hides
+    dependencies and needs reflection to test.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">5.2</span><span>How does Spring inject a <code>List&lt;NotificationChannel&gt;</code>?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>It collects every bean of that type. That is what makes the resolver extensible: mark a new channel
+    <code>@Component</code> and it joins the list automatically. Order can be controlled with <code>@Order</code>, but my
+    resolver does not care because each channel declares its own key.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">5.3</span><span><code>@Component</code> vs <code>@Service</code> vs <code>@Repository</code>?</span><span class="lvl easy">Basic</span></div>
+  <div class="a">
+    <p>All three register a bean. <code>@Service</code> and <code>@Repository</code> are specialisations that document
+    intent &mdash; with one real difference: <code>@Repository</code> enables exception translation, converting vendor
+    SQL exceptions into Spring's <code>DataAccessException</code> hierarchy.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">5.4</span><span>Why is <code>send()</code> not <code>@Transactional</code>?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Because delivery happens inside it, and retries sleep for seconds. A transaction spanning that would hold a
+    database connection the whole time and exhaust the pool under load. Each status write commits on its own, which I
+    accept: it means status is durable at every step, and a crash leaves a visible <code>PROCESSING</code> row rather than
+    a rolled-back mystery.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "What would you do instead?" &rarr; Commit the notification in a short
+  transaction, then publish to a queue and deliver in a separate consumer, so the database work and the network call are
+  never in the same unit.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">5.5</span><span>How do exceptions become HTTP responses?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>A <code>@RestControllerAdvice</code> class with <code>@ExceptionHandler</code> methods returning
+    <code>ProblemDetail</code>, Spring's RFC 9457 implementation. Validation failures map to 400 with the list of
+    violations, unknown ids to 404. Internal exceptions like <code>NotificationDeliveryException</code> never reach it,
+    because the engine handles them.</p>
+  </div>
+</div>
+
+<h2 id="data">6 &middot; Database and JPA</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">6.1</span><span>Why two classes, <code>Notification</code> and <code>NotificationEntity</code>?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>So the domain model has no JPA annotations and no persistence rules. The entity is the table shape; the mapper
+    converts. It costs one extra class and buys a domain object I can unit-test with no database, plus freedom to change
+    the schema without touching business logic.</p>
+  </div>
+  <div class="followup"><b>Honest counterpoint to offer:</b> for a small CRUD service this is over-engineering; one
+  annotated class would do. It pays off when the domain has real behaviour, as it does here.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">6.2</span><span>Why a repository <i>interface</i> when Spring Data already gives you one?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>So the service and engine depend on my vocabulary, not Spring Data's, and so the domain object never crosses into
+    JPA types. The adapter also translates persistence errors into domain exceptions, like turning a unique-constraint
+    violation into <code>DuplicateIdempotencyKeyException</code>.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">6.3</span><span>Why a targeted <code>updateStatus</code> query instead of <code>save()</code>?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>It writes exactly two columns, so it cannot accidentally overwrite other fields with a stale in-memory copy, and it
+    is one small UPDATE rather than a select-then-merge. It also returns the affected row count, which lets me detect a
+    missing notification.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">6.4</span><span>What indexes does this table need?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>A unique index on <code>idempotency_key</code> &mdash; it enforces correctness, not just speed &mdash; and a plain
+    index on <code>user_id</code> for the inbox query. The primary key covers lookup by id. At scale I would also index
+    <code>status</code> plus <code>created_at</code> for retry sweeps and reporting.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">6.5</span><span>Would you use <code>ddl-auto: update</code> in production?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>No. It is convenient in development but it never drops or alters existing columns, and it gives you no review or
+    rollback. Production should use versioned migrations with Flyway or Liquibase, with <code>ddl-auto: validate</code>
+    to catch drift.</p>
+  </div>
+</div>
+
+<h2 id="reliability">7 &middot; Reliability</h2>
+<p class="section-note">This section separates a student project from a banking one. Know it cold.</p>
+
+<div class="qa">
+  <div class="q"><span class="num">7.1</span><span>What is idempotency and how did you implement it?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Doing the same operation twice has the same effect as doing it once. The caller sends a key derived from the
+    business event, such as <code>txn-9001:debit</code>. The service looks it up and returns the existing notification if
+    found. The <b>unique constraint on the column</b> is the real guarantee: if two identical requests race, the database
+    rejects the second insert and the service returns the winner.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "Why not just check in Java?" &rarr; Two threads (or two servers) can both see
+  "not found" before either inserts. Only the database can arbitrate.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">7.2</span><span>Why exponential backoff rather than retrying immediately?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>If a provider is overloaded, immediate retries add load and make it worse. Growing delays give it time to recover
+    and spread our own load out. The cap stops delays growing without limit.</p>
+  </div>
+  <div class="followup"><b>Follow-up they love:</b> "What is missing?" &rarr; <b>Jitter</b>. With fixed backoff, a
+  thousand notifications that failed together retry together. Randomising the delay spreads the herd.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">7.3</span><span>Who decides whether a failure is retryable?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>The channel, because only it knows the difference between a gateway timeout and an invalid phone number. It throws
+    <code>NotificationDeliveryException.retryable(...)</code> or <code>.permanent(...)</code>, and the policy reads the
+    flag. Unknown runtime exceptions are treated as permanent: they are bugs, and retrying a bug just fails three times.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">7.4</span><span>What happens if the service crashes mid-delivery?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Today the notification is left in <code>PROCESSING</code> and nothing resumes it &mdash; an honest limitation. The
+    fix is a scheduled sweep that finds rows stuck in <code>PROCESSING</code> or <code>RETRYING</code> past a timeout and
+    re-queues them, which works precisely because every status change is persisted as it happens.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">7.5</span><span>At-least-once or at-most-once delivery?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>At-least-once at the channel level: a provider may have accepted the message even if our call timed out, so a retry
+    can duplicate it. Idempotency protects against duplicate <i>requests</i>, not duplicate <i>sends</i>. Making sends
+    idempotent needs a provider-side idempotency key, which most SMS and email gateways support.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">7.6</span><span>How do you stop a broken listener from breaking delivery?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Each listener call in <code>publish()</code> is wrapped in its own try/catch. A listener that throws is logged and
+    the loop continues, so a metrics bug cannot stop an SMS. I have a test with a deliberately broken listener that proves
+    the other two still run.</p>
+  </div>
+</div>
+
+<h2 id="testing">8 &middot; Testing</h2>
+
+<div class="qa">
+  <div class="q"><span class="num">8.1</span><span>How did you test the engine?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>With a hand-written fake channel scripted to fail a given number of times, a mocked repository that records the
+    status at every call, and a real publisher with a recording listener. Then I assert three things: how many times the
+    channel was called, the exact sequence of persisted statuses, and the exact list of published events. A zero-delay
+    retry policy keeps it instant.</p>
+  </div>
+  <div class="followup"><b>Follow-up:</b> "Mock or fake?" &rarr; Fake for the channel, because "fail twice then succeed"
+  reads better as real code; mock for the repository, because I only care that it was called with the right state.</div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">8.2</span><span>How do you test something that sleeps?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Inject the retry policy, then pass one with zero delays in tests. The waiting is a collaborator's decision, not the
+    engine's. I keep one slower test that uses a real 200ms delay to prove the engine actually waits.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">8.3</span><span>Unit tests or integration tests for the repository?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Integration, with <code>@DataJpaTest</code> against in-memory H2, because the things worth testing are the mapping,
+    the unique constraint and the update query &mdash; none of which a mock can verify. For production-grade confidence I
+    would use Testcontainers with real MySQL, since H2 does not reproduce every MySQL behaviour.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">8.4</span><span>Which bug did your tests catch that review missed?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Several, and they make a good story. The best one: in the event publisher I wrote
+    <code>listeners.addAll(listeners)</code>, forgetting <code>this.</code>, so the parameter was added to itself and the
+    field stayed empty. It compiled, started fine, and silently notified nobody &mdash; no audit trail at all. A test that
+    published an event and asserted the metrics counter caught it immediately.</p>
+  </div>
+  <div class="tip"><div class="th">Why to tell this story</div>It shows you test behaviour rather than structure, and that
+  you understand why a silent failure is worse than a crash.</div>
+</div>
+
+<h2 id="scale">9 &middot; Scaling it up</h2>
+<p class="section-note">"How would you improve this?" is almost guaranteed. Have four answers ready.</p>
+
+<div class="qa">
+  <div class="q"><span class="num">9.1</span><span>Delivery blocks the HTTP request. How would you fix that?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Persist the notification, return <code>202 Accepted</code> immediately, and publish it to a queue &mdash; Kafka
+    here, since the banking system already uses it. A consumer runs the engine. The caller is no longer held for the
+    length of the retries, and delivery workers scale independently of the API.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">9.2</span><span>How would you handle 10,000 notifications per second?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <ul class="tight">
+      <li>Queue-based delivery with many partitions, keyed by user id so one user's messages stay ordered.</li>
+      <li>Batch the provider calls where the API allows it.</li>
+      <li>Rate-limit per provider, with a circuit breaker so a dead provider fails fast instead of consuming threads.</li>
+      <li>Move counters to Micrometer and Prometheus rather than in-memory.</li>
+      <li>Partition or archive the notifications table by date.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">9.3</span><span>What happens to notifications that fail permanently?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Today they are stored as <code>FAILED</code> with a reason and counted. Next step is a dead-letter topic plus an
+    alert when the failure rate for a channel crosses a threshold, because a spike usually means the provider is down
+    rather than the numbers being wrong.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">9.4</span><span>What is the biggest weakness of your design?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>The service has no recipient. It knows a <code>userId</code> but not an email address or phone number, so the
+    channels are simulated. I would add a <code>RecipientResolver</code> that looks up contact details, cached, and treat
+    a missing address as a permanent failure. Second weakness: no authentication, so the GET-by-user endpoint would leak
+    other customers' notifications.</p>
+  </div>
+  <div class="tip"><div class="th">Never say "nothing"</div>Naming a real weakness, with the fix, is one of the strongest
+  signals you can give. Saying the design is perfect is one of the weakest.</div>
+</div>
+
+<h2 id="traps">10 &middot; Trap questions</h2>
+<p class="section-note">Questions designed to see whether you understand your own code or just typed it.</p>
+
+<div class="qa">
+  <div class="q"><span class="num">10.1</span><span>Why is the SENT status saved outside the try/catch?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Because inside it, a database error while saving <code>SENT</code> would be caught as if the <i>send</i> had
+    failed, and the engine would retry &mdash; sending the customer a second SMS. The send and the record-keeping must
+    fail independently.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">10.2</span><span>Why catch <code>RuntimeException</code> and not just your own exception?</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Because a channel might throw a <code>NullPointerException</code> from a bug. If I only caught my own type, that
+    would escape the engine and leave the notification stuck in <code>PROCESSING</code> forever. Catching everything means
+    it ends as <code>FAILED</code> with the reason recorded.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">10.3</span><span>Your event has no message body. Is that an oversight?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>Deliberate. Listeners write to logs, and a bank notification body contains OTPs, balances and account numbers. The
+    event carries ids, type, status and a failure reason &mdash; enough to audit, impossible to leak.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">10.4</span><span>Why does <code>CRITICAL</code> ignore user preferences? Is that legal?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>It is the normal distinction between marketing and transactional or security messages. A customer can opt out of
+    promotions; they cannot opt out of an OTP or a fraud alert, because those are part of operating the account safely.
+    The rule lives on the priority enum, so it is applied in exactly one place.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">10.5</span><span>What if two channels return the same <code>supportedType()</code>?</span><span class="lvl mid">Common</span></div>
+  <div class="a">
+    <p>The resolver detects it while building its map and throws, so the application fails to start with a message naming
+    both classes. Failing at startup is much better than silently picking whichever bean Spring happened to create
+    first.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><span class="num">10.6</span><span>Walk me through what happens when the SMS provider is down for 10 minutes.</span><span class="lvl hard">Deep</span></div>
+  <div class="a">
+    <p>Each notification tries three times over about 1.5 seconds, then goes to <code>FAILED</code> with the reason, and
+    the metrics counter for failures climbs. Nothing retries later, which is the gap: with a queue and a dead-letter
+    topic those messages could be replayed once the provider recovers. A circuit breaker would also stop us wasting
+    threads on a provider we know is down.</p>
+  </div>
+</div>
+
+<h2 id="ask">11 &middot; Questions to ask them</h2>
+<p class="section-note">Interviews end with "any questions?". These show engineering judgement rather than curiosity about perks.</p>
+<div class="card">
+  <ul class="tight">
+    <li>"How do you handle idempotency and retries between your services today?"</li>
+    <li>"Is delivery synchronous anywhere in your stack, or is everything queue-based?"</li>
+    <li>"How do you manage schema migrations &mdash; Flyway, Liquibase, something in-house?"</li>
+    <li>"What does your testing pyramid look like? Do you use Testcontainers for database tests?"</li>
+    <li>"How do you monitor a failure like an SMS provider going down &mdash; who gets paged and how fast?"</li>
+    <li>"How much of the codebase is covered by automated tests, and is that enforced in CI?"</li>
+    <li>"What does the first month look like for someone joining this team?"</li>
+  </ul>
+</div>
+
+<div class="tip">
+  <div class="th">Three rules for the whole interview</div>
+  <ul class="tight">
+    <li><b>Answer in two levels.</b> Give the short answer, then stop. Let them ask for depth: it turns a monologue into a
+    conversation.</li>
+    <li><b>Say "I do not know" when you do not.</b> Follow it with how you would find out. It costs far less than
+    bluffing, which they will detect.</li>
+    <li><b>Talk about trade-offs, not rules.</b> "I chose X because Y, and the cost is Z" beats "X is best practice"
+    every time.</li>
+  </ul>
+</div>
+
+<footer>
+  Companion files: <b>notification-service-flow.html</b> (how a request flows) &middot;
+  <b>notification-service-uml.html</b> (diagrams) &middot;
+  <b>mistakes-log.html</b> (your bugs and concepts) &middot;
+  <b>notification-service-code-reference.pdf</b> (full worked code).
+</footer>
+</div>
+</body>
+</html>

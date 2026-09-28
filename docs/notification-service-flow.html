@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification Service: Flow Notes</title>
+<style>
+  :root {
+    --bg:#f7f7f4; --surface:#fff; --surface-2:#f1f2ee; --text:#1c222c; --muted:#5b6573;
+    --border:#e0e2dd; --accent:#2f6fde;
+    --created:#b8740a; --created-bg:#fff2d9;
+    --sent:#1f8f4e; --sent-bg:#e7f6ec;
+    --failed:#c0392b; --failed-bg:#fdecea;
+    --info:#7446d6; --info-bg:#f1e9ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#13161b; --surface:#1b1f26; --surface-2:#232830; --text:#e6eaf0; --muted:#9aa4b2;
+      --border:#2e3440; --accent:#79a6ff;
+      --created:#f0b54a; --created-bg:#33270f;
+      --sent:#4fcf85; --sent-bg:#122a1d;
+      --failed:#ff8a78; --failed-bg:#331a17;
+      --info:#b08cff; --info-bg:#241a3d;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .page{max-width:1000px;margin:0 auto;padding:36px 20px 80px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 20px}
+  h2{font-size:20px;margin:44px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--text)}
+  h3{font-size:16px;margin:24px 0 8px}
+  code,pre{font-family:ui-monospace,Consolas,"Cascadia Mono",monospace}
+  code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:13px}
+  pre{margin:0;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;
+      background:var(--surface-2);border:1px solid var(--border)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  ul.tight{margin:6px 0;padding-left:20px}
+  ul.tight li{margin:3px 0}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0;padding:0;list-style:none}
+  .toc a{font-size:13px;text-decoration:none;color:var(--text);background:var(--surface);
+         border:1px solid var(--border);border-radius:999px;padding:4px 10px}
+  .toc a:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* step cards */
+  .step{display:grid;grid-template-columns:44px 1fr;gap:14px;background:var(--surface);
+        border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .step-num{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;
+            display:grid;place-items:center;font-weight:700;font-size:15px}
+  .step h3{margin:2px 0 6px;font-size:17px}
+  .step .what{color:var(--muted);margin:0 0 8px}
+  .risk{background:var(--failed-bg);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:14px}
+  .risk b{color:var(--failed)}
+
+  /* status pills */
+  .pill{display:inline-block;font:700 11px/1 ui-monospace,monospace;padding:4px 8px;border-radius:5px;white-space:nowrap}
+  .p-created{color:var(--created);background:var(--created-bg)}
+  .p-sent{color:var(--sent);background:var(--sent-bg)}
+  .p-failed{color:var(--failed);background:var(--failed-bg)}
+  .p-proc{color:var(--info);background:var(--info-bg)}
+
+  .trace{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .trace-title{font-weight:700;margin-bottom:8px}
+  .trace ol{margin:0;padding-left:20px}
+  .trace li{margin:4px 0}
+  .note{border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+  .note b{display:block}
+  footer{margin-top:50px;color:var(--muted);font-size:13px}
+  @media print{.toc{display:none}.step,.card,.trace{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Flow Notes: how one notification travels</h1>
+<p class="sub">Revision sheet for the whole request, from HTTP call to delivered SMS. Read the six steps, then trace the
+five scenarios. If you can retell those, you understand the service.</p>
+
+<ul class="toc">
+  <li><a href="#big">The one-paragraph version</a></li>
+  <li><a href="#steps">Service: 6 steps</a></li>
+  <li><a href="#engine">Engine: the attempt loop</a></li>
+  <li><a href="#status">Status timeline</a></li>
+  <li><a href="#traces">5 traced scenarios</a></li>
+  <li><a href="#who">Who calls whom</a></li>
+  <li><a href="#events">Events published</a></li>
+  <li><a href="#revise">60-second revision</a></li>
+</ul>
+
+<h2 id="big">The one-paragraph version</h2>
+<div class="card">
+The banking system <code>POST</code>s a notification request. <b>NotificationController</b> passes it to
+<b>NotificationService</b>, which validates it, checks whether this exact event was already notified (idempotency),
+builds the final message text with the <b>decorators</b>, saves it as <span class="pill p-created">CREATED</span> and
+announces that. It then asks the <b>preference service</b> whether the customer accepts this channel (unless the
+notification is <code>CRITICAL</code>, which overrides preferences). If allowed, it marks the notification
+<span class="pill p-created">QUEUED</span> and hands it to the <b>NotificationEngine</b>. The engine asks the
+<b>resolver</b> for the channel that handles this type, tries to send, and on failure asks the <b>retry policy</b>
+whether to try again. Every status change is written to the database and announced to the <b>listeners</b>
+(audit, logging, metrics).
+</div>
+
+<h2 id="steps">NotificationService: the six steps</h2>
+<p class="sub">The service never sends anything itself. It asks six collaborators, in this order.</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div>
+    <h3>Validate the request</h3>
+    <p class="what">Uses: <code>Validator</code></p>
+    Run the bean-validation constraints on <code>NotificationRequest</code> (<code>@NotBlank</code>,
+    <code>@Size</code>, <code>@NotNull</code>). If anything fails, throw
+    <code>InvalidNotificationRequestException</code> carrying all the violations at once.
+    <div class="risk"><b>Why in the service, not the controller?</b> Later, Kafka consumers will call
+    <code>send()</code> directly without any HTTP involved. Validation in the service means every caller gets the same
+    checks. The <code>GlobalExceptionHandler</code> turns the exception into <b>400</b> for HTTP callers.</div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div>
+    <h3>Idempotency: have I already sent this?</h3>
+    <p class="what">Uses: <code>repository.findByIdempotencyKey(key)</code></p>
+    If the key is present and a notification already exists for it, <b>return that one and stop</b>. No new row, no
+    second SMS, no events. Treat a blank key (<code>"  "</code>) as "no key".
+    <div class="risk"><b>The race:</b> two identical requests can both find nothing. The database's unique constraint
+    rejects the second insert, the repository turns that into <code>DuplicateIdempotencyKeyException</code>, and the
+    service catches it in step 4 and returns the winner. <b>Checking in Java alone is not enough.</b></div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div>
+    <h3>Build the final text with the decorators</h3>
+    <p class="what">Uses: <code>SimpleNotification</code> &rarr; <code>TimestampNotificationDecorator</code> &rarr;
+    <code>SignatureNotificationDecorator</code>, plus <code>clock</code></p>
+<pre>NotificationContent content = new SimpleNotification(request.title(), request.content());
+content = new TimestampNotificationDecorator(content, ZonedDateTime.now(clock));
+content = new SignatureNotificationDecorator(content, signature);</pre>
+    <div class="risk"><b>Order matters:</b> decorate <i>before</i> saving, so the database stores exactly the text the
+    customer received. Save <code>content.getBody()</code>, never the raw request body.</div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div>
+    <h3>Create, save, announce</h3>
+    <p class="what">Uses: <code>Notification.create(...)</code>, <code>repository.save</code>, <code>eventPublisher</code></p>
+    <code>create()</code> generates the UUID and sets <span class="pill p-created">CREATED</span>. Save it, then publish
+    <code>NOTIFICATION_CREATED</code> so audit, logging and metrics all hear about it.
+    <div class="risk"><b>Order again:</b> save first, publish second. Announcing something that failed to save would put
+    a lie in the audit trail.</div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">5</div>
+  <div>
+    <h3>Preferences, with the banking override</h3>
+    <p class="what">Uses: <code>preferenceService.isChannelEnabled(userId, type)</code>, <code>priority.overridesUserPreferences()</code></p>
+<pre>boolean allowed = notification.getNotificationPriority().overridesUserPreferences()
+        || preferenceService.isChannelEnabled(userId, type);</pre>
+    If not allowed: transition to <span class="pill p-failed">CANCELLED</span>, persist, publish
+    <code>NOTIFICATION_CANCELLED</code> with a reason, and <b>return without calling the engine</b>.
+    <div class="risk"><b>Why the override:</b> a customer may switch off marketing SMS, but an OTP, a suspicious-transaction
+    alert or a card block must still reach them. That is what <code>CRITICAL</code> means here.</div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">6</div>
+  <div>
+    <h3>Queue it and hand over</h3>
+    <p class="what">Uses: <code>repository.updateStatus</code>, <code>engine.deliver(notification)</code></p>
+    Transition to <span class="pill p-created">QUEUED</span>, persist, then call the engine. The service's job ends here;
+    everything after this belongs to the engine.
+    <div class="risk"><b>Why not <code>@Transactional</code> on this method?</b> The engine may sleep for seconds between
+    retries. Holding a database transaction (and its connection) open that whole time would exhaust the pool under load.
+    Each status write commits on its own.</div>
+  </div>
+</div>
+
+<h2 id="engine">NotificationEngine: the attempt loop</h2>
+<div class="card">
+<pre>channel = resolver.resolve(type)          // no channel? -> FAILED, stop
+
+for (attempt = 1; ; attempt++) {
+    status = PROCESSING                    // persisted every time
+    failure = trySend(channel)             // returns the exception instead of throwing
+
+    if (failure == null) {
+        status = SENT;  publish(SENT);  return
+    }
+
+    keepGoing = attempt &lt; maxAttempts &amp;&amp; retryPolicy.isRetryable(failure)
+    if (!keepGoing) {
+        status = FAILED;  publish(FAILED, reason);  return
+    }
+
+    status = RETRYING;  publish(RETRYING, reason)
+    sleep(retryPolicy.delayAfterAttempt(attempt))   // interrupted -> FAILED, stop
+}</pre>
+  <div class="note"><b>The two rules that keep it safe</b>
+  The <span class="pill p-sent">SENT</span> write happens <b>outside</b> the try/catch, so a database error cannot be
+  mistaken for a send failure and trigger a second SMS. And <i>every</i> <code>RuntimeException</code> is caught, not just
+  <code>NotificationDeliveryException</code>, so a bug inside a channel cannot strand a notification in
+  <span class="pill p-proc">PROCESSING</span>.</div>
+</div>
+
+<h2 id="status">Status timeline</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Status</th><th>Set by</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p-created">CREATED</span></td><td>Service, step 4</td><td>Saved, nothing attempted yet</td></tr>
+      <tr><td><span class="pill p-failed">CANCELLED</span></td><td>Service, step 5</td><td>Customer disabled this channel (and it was not CRITICAL)</td></tr>
+      <tr><td><span class="pill p-created">QUEUED</span></td><td>Service, step 6</td><td>Allowed; about to be handed to the engine</td></tr>
+      <tr><td><span class="pill p-proc">PROCESSING</span></td><td>Engine, each attempt</td><td>A send is in flight right now</td></tr>
+      <tr><td><span class="pill p-proc">RETRYING</span></td><td>Engine</td><td>Attempt failed, waiting out the backoff</td></tr>
+      <tr><td><span class="pill p-sent">SENT</span></td><td>Engine</td><td>Channel accepted it. Terminal.</td></tr>
+      <tr><td><span class="pill p-failed">FAILED</span></td><td>Engine</td><td>Permanent failure, attempts exhausted, or no channel. Terminal.</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:12px 0 0"><b>Rule:</b> only <code>Notification.transitionTo()</code> may change status, and it rejects
+  any move the enum does not allow. <span class="pill p-sent">SENT</span>,
+  <span class="pill p-failed">FAILED</span> and <span class="pill p-failed">CANCELLED</span> are terminal: nothing
+  leaves them.</p>
+</div>
+
+<h2 id="traces">Five traced scenarios</h2>
+
+<div class="trace">
+  <div class="trace-title">A. Happy path &mdash; SMS delivered first try</div>
+  <ol>
+    <li>Request validated</li>
+    <li>Key <code>txn-9001:debit</code> not seen before</li>
+    <li>Text built: body + <code>Time: ...</code> + signature</li>
+    <li>Saved <span class="pill p-created">CREATED</span>, event <code>NOTIFICATION_CREATED</code></li>
+    <li>SMS enabled for this user &rarr; allowed</li>
+    <li><span class="pill p-created">QUEUED</span> &rarr; engine &rarr; <span class="pill p-proc">PROCESSING</span>
+        &rarr; channel accepts &rarr; <span class="pill p-sent">SENT</span>, event <code>NOTIFICATION_SENT</code></li>
+  </ol>
+  <b>Result:</b> HTTP 201, 4 database writes, 2 events.
+</div>
+
+<div class="trace">
+  <div class="trace-title">B. The banking system retries the same event</div>
+  <ol>
+    <li>Request validated</li>
+    <li>Key <code>txn-9001:debit</code> <b>found</b> &rarr; return the existing notification immediately</li>
+  </ol>
+  <b>Result:</b> no new row, no events, <b>no second SMS</b>. Steps 3-6 never run.
+</div>
+
+<div class="trace">
+  <div class="trace-title">C. Customer switched off SMS</div>
+  <ol>
+    <li>Steps 1-4 as usual: saved <span class="pill p-created">CREATED</span>, event published</li>
+    <li>Priority is <code>HIGH</code>, not <code>CRITICAL</code>; SMS disabled &rarr; not allowed</li>
+    <li><span class="pill p-failed">CANCELLED</span>, event <code>NOTIFICATION_CANCELLED</code>, engine never called</li>
+  </ol>
+  <b>Same request with <code>CRITICAL</code> priority (an OTP):</b> the preference check is skipped and it is delivered.
+</div>
+
+<div class="trace">
+  <div class="trace-title">D. Gateway timeout, then success</div>
+  <ol>
+    <li>Engine: <span class="pill p-proc">PROCESSING</span> &rarr; channel throws <code>retryable("gateway timeout")</code></li>
+    <li>Attempts left <b>and</b> retryable &rarr; <span class="pill p-proc">RETRYING</span>,
+        event <code>NOTIFICATION_RETRYING</code>, sleep 500ms</li>
+    <li><span class="pill p-proc">PROCESSING</span> again &rarr; channel accepts &rarr;
+        <span class="pill p-sent">SENT</span></li>
+  </ol>
+  <b>Result:</b> 6 database writes, 2 events, one customer message. The retry is invisible to the customer.
+</div>
+
+<div class="trace">
+  <div class="trace-title">E. Invalid phone number</div>
+  <ol>
+    <li>Engine: <span class="pill p-proc">PROCESSING</span> &rarr; channel throws <code>permanent("invalid number")</code></li>
+    <li>Not retryable &rarr; straight to <span class="pill p-failed">FAILED</span>,
+        event <code>NOTIFICATION_FAILED</code> carrying the reason</li>
+  </ol>
+  <b>Result:</b> one attempt only. Retrying a wrong number three times helps nobody.
+</div>
+
+<h2 id="who">Who calls whom</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Class</th><th>Depends on</th><th>Never touches</th></tr></thead>
+    <tbody>
+      <tr><td>NotificationController</td><td>NotificationService</td><td>repository, engine, channels</td></tr>
+      <tr><td>NotificationService</td><td>repository, engine, publisher, preferences, validator, clock</td><td>channels, resolver, retry policy</td></tr>
+      <tr><td>NotificationEngine</td><td>resolver, repository, publisher, retryPolicy, clock</td><td>the service, the DTOs, JPA</td></tr>
+      <tr><td>NotificationChannelResolver</td><td>every NotificationChannel</td><td>notifications' content</td></tr>
+      <tr><td>Channels</td><td>nothing of ours</td><td>status, events, database</td></tr>
+      <tr><td>Publisher</td><td>every listener</td><td>what the listeners do</td></tr>
+      <tr><td>JpaNotificationRepository</td><td>Spring Data, mapper, entity</td><td>service and engine logic</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:12px 0 0"><b>Read the middle column top to bottom:</b> dependencies only ever point <i>downwards</i>.
+  Nothing lower ever calls back up. That is what keeps each class testable on its own.</p>
+</div>
+
+<h2 id="events">Events published, and by whom</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Event</th><th>Published by</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><code>NOTIFICATION_CREATED</code></td><td>Service</td><td>After the first successful save</td></tr>
+      <tr><td><code>NOTIFICATION_CANCELLED</code></td><td>Service</td><td>Channel disabled and priority is not CRITICAL</td></tr>
+      <tr><td><code>NOTIFICATION_RETRYING</code></td><td>Engine</td><td>Retryable failure with attempts left</td></tr>
+      <tr><td><code>NOTIFICATION_SENT</code></td><td>Engine</td><td>Channel accepted the message</td></tr>
+      <tr><td><code>NOTIFICATION_FAILED</code></td><td>Engine</td><td>Permanent failure, attempts exhausted, no channel, or interrupted</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:12px 0 0">Each event reaches all three listeners: <b>audit</b> (compliance record),
+  <b>logging</b> (operations) and <b>metrics</b> (counters). None of them can break delivery, because
+  <code>publish()</code> catches whatever a listener throws.</p>
+</div>
+
+<h2 id="revise">60-second revision</h2>
+<div class="card">
+  <ul class="tight">
+    <li><b>Service = orchestration, engine = delivery.</b> The service decides <i>whether</i>, the engine handles <i>how</i>.</li>
+    <li><b>Six steps:</b> validate &rarr; idempotency &rarr; decorate &rarr; save + announce &rarr; preferences &rarr; queue + hand over.</li>
+    <li><b>Idempotency needs both</b> a lookup in Java and a unique constraint in the database.</li>
+    <li><b>Decorate before saving</b>, so the stored text is what the customer got.</li>
+    <li><b>CRITICAL beats preferences.</b> OTPs and fraud alerts always go out.</li>
+    <li><b>Engine loop:</b> PROCESSING &rarr; send &rarr; SENT, or ask the policy &rarr; RETRYING + wait, or FAILED.</li>
+    <li><b>SENT is written outside the try/catch</b>, so a DB error cannot cause a duplicate send.</li>
+    <li><b>Every status change is persisted and announced.</b> Statuses are state; events are news.</li>
+    <li><b>Terminal states:</b> SENT, FAILED, CANCELLED. Nothing leaves them.</li>
+    <li><b>Nothing is @Transactional across a send</b>, because retries sleep.</li>
+  </ul>
+</div>
+
+<footer>
+  Companion files: <b>notification-service-uml.html</b> (diagrams) &middot;
+  <b>mistakes-log.html</b> (your bugs and concepts) &middot;
+  <b>interview-questions.html</b> (what they can ask) &middot;
+  <b>notification-service-code-reference.pdf</b> (full worked code).
+</footer>
+</div>
+</body>
+</html>
