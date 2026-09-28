@@ -2,6 +2,7 @@ package org.example.notificationservice.repository;
 
 import org.example.notificationservice.domain.Notification;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface NotificationRepository {
@@ -11,7 +12,7 @@ public interface NotificationRepository {
 
     void save(Notification notification);
 
-    Notification findByUserId(String userId);
+    List<Notification> findByUserId(String userId);
 
-    Optional<Object> findById(String notificationId);
+    Optional<Notification> findById(String notificationId);
 }

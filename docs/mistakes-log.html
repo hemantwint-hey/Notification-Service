@@ -105,6 +105,7 @@ and before writing a new package.</p>
     <li><a href="#round-6">Round 6 &middot; observer package</a></li>
     <li><a href="#round-7">Round 7 &middot; preferences</a></li>
     <li><a href="#round-8">Round 8 &middot; notification engine</a></li>
+    <li><a href="#round-9">Round 9 &middot; notification service</a></li>
     <li><a href="#concepts">Concept index</a></li>
     <li><a href="#checklist">Self-check list</a></li>
   </ul>
@@ -1669,6 +1670,238 @@ if (!waitBeforeRetry(retryPolicy.delayAfterAttempt(attempt))) {
   </article>
 </section>
 
+<!-- ============================ ROUND 9 ============================ -->
+<section class="round" id="round-9">
+  <div class="round-head">
+    <h2>Round 9 &middot; NotificationService</h2>
+    <span class="round-meta">28 Sep 2026 &middot; 5 compile errors + 5 silent bugs &middot; verified with 9 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>The six-step orchestration was right.</b> Validate, deduplicate, decorate, save, check preferences, queue and hand
+    over &mdash; in the correct order, with the decorators applied before saving and the CRITICAL override in place.
+    What went wrong was almost entirely <b>one wrong auto-import</b> that cascaded into four more errors, plus a
+    copy-paste bug that would have disabled the preference feature completely.
+  </div>
+
+  <!-- 9.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">9.1</span>
+      <h3 class="entry-title">The IDE imported the wrong <code>Validator</code>, and then "fixed" the damage</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">service/NotificationService.java &middot; dto/request/NotificationRequest.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">import javax.xml.validation.Validator;      // XML schema validator!
+...
+Set&lt;ConstraintViolation&lt;NotificationRequest&gt;&gt; violations = validator.validate(request);
+// error: incompatible types: void cannot be converted to Set&lt;ConstraintViolation&lt;...&gt;&gt;
+
+// then, to silence the next error, the IDE offered this "fix" on the DTO:
+import javax.xml.transform.Source;
+public record NotificationRequest(...) implements Source { }
+// error: NotificationRequest is not abstract and does not override getSystemId()</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">import jakarta.validation.Validator;        // the bean-validation one
+...
+public record NotificationRequest(...) { }  // implements nothing</pre>
+
+    <p class="why"><b>Why it happened:</b> two unrelated classes share the name <code>Validator</code>.
+    <code>javax.xml.validation.Validator</code> validates XML documents against a schema and its
+    <code>validate(Source)</code> returns <code>void</code>; <code>jakarta.validation.Validator</code> is bean validation
+    and its <code>validate(T)</code> returns the constraint violations. The IDE picked the wrong one, and when the next
+    error appeared it offered to make my DTO implement <code>javax.xml.transform.Source</code> &mdash; which I accepted,
+    turning one mistake into two files of damage.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: auto-import is a suggestion, not an answer</div>
+      When the same simple name exists in several packages, the IDE guesses. Names that bite in Spring projects:
+      <table>
+        <tr><th>Name</th><th>Almost always want</th><th>Not</th></tr>
+        <tr><td><code>Validator</code></td><td><code>jakarta.validation</code></td><td><code>javax.xml.validation</code>, <code>org.springframework.validation</code></td></tr>
+        <tr><td><code>Transactional</code></td><td><code>org.springframework.transaction.annotation</code></td><td><code>jakarta.transaction</code></td></tr>
+        <tr><td><code>Order</code></td><td><code>org.springframework.core.annotation</code></td><td><code>jakarta.persistence.criteria.Order</code></td></tr>
+        <tr><td><code>Component</code></td><td><code>org.springframework.stereotype</code></td><td><code>java.awt.Component</code></td></tr>
+      </table>
+      <b>The rule:</b> when a red line appears right after an auto-import, suspect the import before the code. And when
+      the IDE offers to make your class <i>implement an interface you have never heard of</i>, that is never the fix.
+      In this file it also pulled in <code>org.aspectj.weaver.ast.Not</code>, presumably while typing
+      <code>Notification</code>.
+    </div>
+  </article>
+
+  <!-- 9.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">9.2</span>
+      <h3 class="entry-title">Preferences were looked up by notification id instead of user id</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">service/NotificationService.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">private boolean isDeliveryAllowed(Notification notification){
+    return notification.getNotificationPriority().overridesUserPreferences()
+            || preferenceService.isChannelEnabled(notification.getNotificationId(),   // &lt;- the UUID!
+                                                  notification.getNotificationType());
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">            || preferenceService.isChannelEnabled(notification.getUserId(),
+                                                  notification.getNotificationType());</pre>
+
+    <p class="why"><b>Why it was wrong:</b> both are <code>String</code>, so it compiled happily. But the notification id
+    is a fresh UUID for every notification, so the lookup could never match a stored preference and
+    <code>isChannelEnabled</code> would return <code>true</code> every single time. <b>The entire preference feature would
+    have been silently dead</b>, and a customer who switched SMS off would keep receiving SMS. My test
+    <code>channelDisabledForThatUserCancelsInsteadOfSending</code> fails immediately with the old line.
+    <br><br>
+    Same family as entry 1.4 (<code>title</code>/<code>content</code> swapped): when two parameters are both
+    <code>String</code>, the compiler cannot help you. The same mistake appeared a second time in this class, in the
+    cancellation message (<code>"Channel %s disabled"</code> was given the notification id instead of the channel type),
+    which would have produced a meaningless audit record.</p>
+  </article>
+
+  <!-- 9.3 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">9.3</span>
+      <h3 class="entry-title">The two read methods were <code>private</code>, so the controller could not call them</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">service/NotificationService.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">private List&lt;Notification&gt; getByUserId(String userId){ ... }
+private Notification getById(String notificationId){ ... }</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public List&lt;Notification&gt; getByUserId(String userId){ ... }
+public Notification getById(String notificationId){ ... }</pre>
+
+    <p class="why"><b>Why it was wrong:</b> these two exist <i>only</i> to serve
+    <code>GET /api/v1/notifications/{id}</code> and <code>?userId=</code>. Private meant nothing outside the class could
+    reach them: the controller would not compile, and IntelliJ would have greyed them out as unused. <b>Same root cause
+    as entry 2.1</b>, where <code>TimestampNotificationDecorator</code>'s constructor was <code>protected</code> and the
+    service could not build it. Ask of every method: <i>who is supposed to call this?</i> If the answer is "another
+    package", it is <code>public</code>.</p>
+  </article>
+
+  <!-- 9.4 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">9.4</span>
+      <h3 class="entry-title">Repository signatures that did not match how they are used</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">repository/NotificationRepository.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">Notification findByUserId(String userId);        // one notification for a whole user?
+Optional&lt;Object&gt; findById(String notificationId); // Object, so nothing type-checks
+
+// and the service had to bend around them:
+return Collections.singletonList(repository.findByUserId(userId));
+return repository.findById(id).orElseThrow(...);   // error: Object is not a Notification</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">List&lt;Notification&gt; findByUserId(String userId);
+Optional&lt;Notification&gt; findById(String notificationId);</pre>
+
+    <p class="why"><b>Why it was wrong:</b> a user has many notifications, so the return type must be a
+    <code>List</code>. Wrapping a single result in <code>Collections.singletonList</code> was the code trying to tell me
+    the signature was wrong. And <code>Optional&lt;Object&gt;</code> throws away the type, so the compiler rejected the
+    assignment.
+    <br><br>
+    <b>The lesson about interfaces:</b> when you find yourself writing awkward glue at the call site
+    (<code>singletonList</code>, a cast, a needless loop), <b>the interface is usually wrong, not the caller</b>.
+    <code>Optional&lt;Object&gt;</code> in particular is almost always an IDE-generated stub that was never filled in.</p>
+  </article>
+
+  <!-- 9.5 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">9.5</span>
+      <h3 class="entry-title">A duplicated constructor parameter, and a <code>String</code> Spring cannot inject</h3>
+      <span class="chip bug">Bug</span>
+    </div>
+    <div class="file">service/NotificationService.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public NotificationService(NotificationRepository repository,
+                           NotificationPreferenceService preferenceService,
+                           NotificationEngine engine,
+                           NotificationEventPublisher eventPublisher,
+                           NotificationEventPublisher engineService,   // second publisher, never used
+                           Validator validator, Clock clock,
+                           String signature) {                         // no bean of type String exists</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">public NotificationService(NotificationRepository repository,
+                           NotificationPreferenceService preferenceService,
+                           NotificationEngine engine,
+                           NotificationEventPublisher eventPublisher,
+                           Validator validator, Clock clock,
+                           @Value("${notification.content.signature:}") String signature) {</pre>
+
+    <p class="why"><b>Why it was wrong:</b> two separate problems in one line.
+    <ul class="tight">
+      <li><b>The duplicate parameter</b> (<code>engineService</code>) was accepted and never assigned &mdash; the same
+      "unused parameter means an unwritten or unwanted line" smell as entries 1.3 and 8.3.</li>
+      <li><b>The bare <code>String</code>:</b> Spring injects <i>beans</i>, and there is no bean of type
+      <code>String</code>. The application would have failed to start with a
+      <code>NoSuchBeanDefinitionException</code>. <code>@Value</code> tells Spring to take the value from configuration
+      instead, with the text after <code>:</code> as the default when the property is absent.</li>
+    </ul></p>
+  </article>
+
+  <!-- 9.6 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">9.6</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">service/NotificationService.java</div>
+
+    <ul class="tight">
+      <li><b>The six steps are in the correct order</b>, and the decorators run <i>before</i> the save, so the database
+      stores exactly the text the customer receives. Verified against the exact expected string, timestamp included.</li>
+      <li><b>Idempotency is handled twice, correctly:</b> the lookup first, and a <code>catch</code> for
+      <code>DuplicateIdempotencyKeyException</code> for the concurrent case, returning the winner. That second half is
+      the part most people forget.</li>
+      <li><b><code>StringUtils.hasText</code></b> so a blank key counts as no key, not as a key of spaces.</li>
+      <li><b><code>orElseThrow(() -&gt; ex)</code></b> to rethrow the original exception if the winner cannot be found: a
+      neat use of a lambda as a supplier.</li>
+      <li><b>CRITICAL is checked first</b> in <code>isDeliveryAllowed</code>, so an OTP short-circuits the preference
+      lookup entirely.</li>
+      <li><b>Validation lives in the service</b>, not the controller, so a future Kafka consumer gets the same checks.</li>
+      <li><b>Violations are sorted</b> before being put in the exception, so the 400 response is stable and testable.</li>
+      <li><b>The same two helpers as the engine</b> (<code>changeStatus</code>, <code>composeContent</code>): the
+      transition-then-persist pair appears once, not four times.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: two kinds of error, and which tests catch them</div>
+      This round split cleanly down the middle, and it is worth seeing the difference:
+      <ul class="tight">
+        <li><b>Five errors the compiler caught</b> (wrong <code>Validator</code>, <code>Source</code>, the typo
+        <code>getNotficationId()</code>, the missing constructor argument, <code>Optional&lt;Object&gt;</code>). These are
+        free: the IDE shows them in red and they cost minutes.</li>
+        <li><b>Five it could not</b> (preferences keyed by the wrong id, the wrong id in the cancel message, private read
+        methods, the duplicate parameter, the un-injectable <code>String</code>). Two of those would have reached
+        production: one silently disabling a feature, one preventing startup.</li>
+      </ul>
+      The red lines are the easy half. <b>The bugs that survive compilation are the ones that need tests</b> &mdash; and
+      the test that caught the big one here simply disabled SMS for a user and asserted the notification was
+      <code>CANCELLED</code>.
+    </div>
+  </article>
+</section>
+
 <!-- ROUND-INSERT-POINT: new rounds are added here -->
 
 <!-- ============================ CONCEPT INDEX ============================ -->
@@ -1687,6 +1920,11 @@ if (!waitBeforeRetry(retryPolicy.delayAfterAttempt(attempt))) {
         <tr><td>Java <code>record</code></td><td>Immutable data carrier with generated accessors; ideal for DTOs</td><td>1.9</td></tr>
         <tr><td>Jackson visibility</td><td>JSON is built from public getters, not from fields</td><td>1.9</td></tr>
         <tr><td>Static factory + private constructor</td><td><code>retryable(...)</code> reads better than <code>new X(..., true, ...)</code></td><td>1.10</td></tr>
+        <tr><td>Auto-import collisions</td><td>Same simple name in several packages: <code>Validator</code>, <code>Transactional</code>, <code>Order</code></td><td>9.1</td></tr>
+        <tr><td>Same-type argument swap</td><td><code>getNotificationId()</code> vs <code>getUserId()</code>: compiles, silently wrong</td><td>9.2, 1.4</td></tr>
+        <tr><td>Method visibility by caller</td><td>If another package must call it, it is <code>public</code></td><td>9.3, 2.1</td></tr>
+        <tr><td>Awkward glue = wrong interface</td><td><code>singletonList</code> or a cast at the call site means fix the signature</td><td>9.4</td></tr>
+        <tr><td><code>@Value</code> for plain values</td><td>Spring injects beans; a bare <code>String</code> parameter fails at startup</td><td>9.5</td></tr>
         <tr><td>Negating a compound condition</td><td>Write the "keep going" form first, then negate the whole thing</td><td>8.1</td></tr>
         <tr><td>Shared counters</td><td>Two classes must agree whether a count starts at 0 or 1</td><td>8.2</td></tr>
         <tr><td>Unused parameter smell</td><td>A parameter you accept and ignore usually means a missing line</td><td>8.3, 1.3</td></tr>
@@ -1763,6 +2001,10 @@ if (!waitBeforeRetry(retryPolicy.delayAfterAttempt(attempt))) {
         <tr><td>Is the same idea spelled the same way everywhere (<code>isRetryable</code> in both classes)?</td><td>3.1</td></tr>
         <tr><td>Does the class have two ways to do the same thing (two loggers, two constructors)?</td><td>6.2</td></tr>
         <tr><td>Removed unused imports? (Ctrl+Alt+O in IntelliJ)</td><td>6.2, 7.1</td></tr>
+        <tr><td>Did I check every auto-imported class is from the package I expected?</td><td>9.1</td></tr>
+        <tr><td>When a method takes two Strings, did I pass the right one (userId vs notificationId)?</td><td>9.2, 1.4</td></tr>
+        <tr><td>Is every method the outside world calls <code>public</code>?</td><td>9.3, 2.1</td></tr>
+        <tr><td>Am I writing glue code to work around my own interface's return type?</td><td>9.4</td></tr>
         <tr><td>Did I read every <code>if</code> with a <code>!</code> out loud to check it is not inverted?</td><td>8.1</td></tr>
         <tr><td>Do my loop counters match what the class I am calling expects (0- or 1-based)?</td><td>8.2</td></tr>
         <tr><td>Is every enum value I declared actually used somewhere (e.g. NOTIFICATION_FAILED)?</td><td>8.3</td></tr>

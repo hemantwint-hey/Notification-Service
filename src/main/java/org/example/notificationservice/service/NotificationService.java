@@ -1,8 +1,8 @@
 package org.example.notificationservice.service;
 
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.weaver.ast.Not;
 import org.example.notificationservice.decorator.NotificationContent;
 import org.example.notificationservice.decorator.SignatureNotificationDecorator;
 import org.example.notificationservice.decorator.SimpleNotification;
@@ -19,13 +19,12 @@ import org.example.notificationservice.observer.NotificationEventPublisher;
 import org.example.notificationservice.observer.NotificationEventType;
 import org.example.notificationservice.preference.NotificationPreferenceService;
 import org.example.notificationservice.repository.NotificationRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import javax.xml.validation.Validator;
 import java.time.Clock;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -44,7 +43,8 @@ public class NotificationService {
     private final Clock clock;
     private final String signature;
 
-    public NotificationService(NotificationRepository repository,NotificationPreferenceService preferenceService, NotificationEngine engine,NotificationEventPublisher eventPublisher, NotificationEventPublisher engineService, Validator validator, Clock clock, String signature) {
+    public NotificationService(NotificationRepository repository,NotificationPreferenceService preferenceService, NotificationEngine engine,NotificationEventPublisher eventPublisher, Validator validator, Clock clock,
+                               @Value("${notification.content.signature:}") String signature) {
         this.repository = repository;
         this.engine = engine;
         this.eventPublisher = eventPublisher;
@@ -60,7 +60,7 @@ public class NotificationService {
         if(idempotencyKey != null){
             Optional<Notification> existing = repository.findByIdempotencyKey(idempotencyKey);
             if(existing.isPresent()){
-                log.info("Idempotency key already used, returning notification {}", existing.get().getNotficationId());
+                log.info("Idempotency key already used, returning notification {}", existing.get().getNotificationId());
                 return existing.get();
             }
         }
@@ -84,7 +84,7 @@ public class NotificationService {
         eventPublisher.publish(NotificationEvent.of(NotificationEventType.NOTIFICATION_CREATED, notification, clock.instant()));
         if(!isDeliveryAllowed(notification)){
             changeStatus(notification,NotificationStatus.CANCELLED);
-            eventPublisher.publish(NotificationEvent.of(NotificationEventType.NOTIFICATION_CANCELLED,notification,"Channel %s disabled by user".formatted(notification.getNotificationId()),clock.instant()));
+            eventPublisher.publish(NotificationEvent.of(NotificationEventType.NOTIFICATION_CANCELLED,notification,"Channel %s disabled by user".formatted(notification.getNotificationType()),clock.instant()));
             return notification;
         }
 
@@ -92,13 +92,13 @@ public class NotificationService {
         engine.deliver(notification);
         return notification;
     }
-    private List<Notification> getByUserId(String userId){
-        return Collections.singletonList(repository.findByUserId(userId));
+    public List<Notification> getByUserId(String userId){
+        return repository.findByUserId(userId);
     }
 
-   private Notification getById(String notificationId){
+   public Notification getById(String notificationId){
         return repository.findById(notificationId)
-                .orElseThrow(() -> new NotificationNotFoundException());
+                .orElseThrow(() -> new NotificationNotFoundException(notificationId));
    }
     private void validate(NotificationRequest request){
         if(request == null)throw new InvalidNotificationRequestException(List.of("request must not be null"));
@@ -122,7 +122,7 @@ public class NotificationService {
     }
     private boolean isDeliveryAllowed(Notification notification){
         return notification.getNotificationPriority().overridesUserPreferences()
-                || preferenceService.isChannelEnabled(notification.getNotificationId(), notification.getNotificationType());
+                || preferenceService.isChannelEnabled(notification.getUserId(), notification.getNotificationType());
     }
 
     private void changeStatus(Notification notification, NotificationStatus status){
