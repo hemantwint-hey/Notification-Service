@@ -6,11 +6,12 @@ import org.example.notificationservice.exception.NotificationNotFoundException;
 import org.example.notificationservice.mapper.NotificationMapper;
 import org.example.notificationservice.repository.NotificationRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+@Repository
 public class JpaNotificationRepository implements NotificationRepository {
 
     private final SpringDataNotificationRepository springDataRepository;
@@ -42,7 +43,7 @@ public class JpaNotificationRepository implements NotificationRepository {
         }
         catch (DataIntegrityViolationException ex){
             String key  = notification.getIdempotencyKey();
-            if(key != null &&   springDataRepository.existByIdempotencyKey(key) )
+            if(key != null &&   springDataRepository.existsByIdempotencyKey(key) )
                 throw new DuplicateIdempotencyKeyException(key, ex);
             throw ex;
         }

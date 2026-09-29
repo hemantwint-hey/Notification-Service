@@ -106,6 +106,8 @@ and before writing a new package.</p>
     <li><a href="#round-7">Round 7 &middot; preferences</a></li>
     <li><a href="#round-8">Round 8 &middot; notification engine</a></li>
     <li><a href="#round-9">Round 9 &middot; notification service</a></li>
+    <li><a href="#round-10">Round 10 &middot; persistence</a></li>
+    <li><a href="#round-11">Round 11 &middot; controller &amp; config</a></li>
     <li><a href="#concepts">Concept index</a></li>
     <li><a href="#checklist">Self-check list</a></li>
   </ul>
@@ -1902,6 +1904,377 @@ Optional&lt;Notification&gt; findById(String notificationId);</pre>
   </article>
 </section>
 
+<!-- ============================ ROUND 10 ============================ -->
+<section class="round" id="round-10">
+  <div class="round-head">
+    <h2>Round 10 &middot; persistence layer</h2>
+    <span class="round-meta">29 Sep 2026 &middot; 3 startup-breaking bugs &middot; verified with 7 H2 tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>The design was right and it compiled perfectly &mdash; and the application could not have started.</b>
+    All three real bugs were invisible to the compiler because JPA and Spring Data resolve their queries and beans at
+    <i>startup</i>, not at compile time. This is the round where "it compiles" was least informative.
+  </div>
+
+  <!-- 10.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">10.1</span>
+      <h3 class="entry-title">JPQL used a column name that is not a field name</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">repository/jpa/SpringDataNotificationRepository.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">@Query("""
+        update NotificationEntity n
+           set n.status = :status, n.updatedAt = :updatedAt
+         where n.notificationId = :notificationId
+""")</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">           set n.notificationStatus = :status, n.updatedAt = :updatedAt</pre>
+
+    <p class="why"><b>Why it was wrong:</b> my entity field is called <code>notificationStatus</code>, not
+    <code>status</code>. <b>JPQL queries entities, not tables</b>, so every name in the query must be a <i>Java field</i>.
+    The application failed to start with:
+<pre class="bad">Could not resolve attribute 'status' of 'NotificationEntity'
+Query validation failed for 'update NotificationEntity n set n.status = ...'
+BeanCreationException: Error creating bean with name 'springDataNotificationRepository'</pre>
+    Note the bright side: Spring Data validates <code>@Query</code> at startup, so this is a loud failure at boot rather
+    than a broken UPDATE at 3am.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: JPQL vs SQL</div>
+      <ul class="tight">
+        <li><b>JPQL</b> (what <code>@Query</code> uses by default) speaks in <b>entity and field names</b>:
+        <code>update NotificationEntity n set n.notificationStatus = ...</code>. Case-sensitive, and refactor-safe
+        because renaming a field breaks the query loudly.</li>
+        <li><b>SQL</b> speaks in <b>table and column names</b>:
+        <code>update notification set status = ...</code>. You get it with
+        <code>@Query(value = "...", nativeQuery = true)</code>, and you need it only for database-specific features.</li>
+      </ul>
+      A useful trick when a name is wrong: the error message names the entity and the attribute it could not find, so
+      compare it against your field list rather than your column list.
+    </div>
+  </article>
+
+  <!-- 10.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">10.2</span>
+      <h3 class="entry-title">A derived query method name with a typo: <code>existBy...</code></h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">repository/jpa/SpringDataNotificationRepository.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">boolean existByIdempotencyKey(String idempotencyKey);</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">boolean existsByIdempotencyKey(String idempotencyKey);</pre>
+
+    <p class="why"><b>Why it was wrong:</b> with Spring Data the <b>method name <i>is</i> the query</b>, so it has to match
+    the grammar exactly: a prefix (<code>findBy</code>, <code>existsBy</code>, <code>countBy</code>,
+    <code>deleteBy</code>), then property names. <code>existBy</code> is not a prefix, so Spring Data would try to read
+    the whole thing as a property path and fail at startup. It compiled because the interface has no body: I was
+    declaring a contract, and the implementation is generated later.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: how a derived query is built</div>
+      <pre style="background:transparent;border:0;padding:0">findByUserIdOrderByCreatedAtDesc(String userId)
+ |    |         |
+ |    |         +-- OrderBy&lt;Field&gt;Desc  -&gt; ORDER BY created_at DESC
+ |    +------------ UserId              -&gt; WHERE user_id = ?
+ +----------------- findBy              -&gt; SELECT</pre>
+      Other useful pieces: <code>And</code> / <code>Or</code>, <code>Between</code>, <code>LessThan</code>,
+      <code>In</code>, <code>IsNull</code>, <code>Top10</code>, <code>Distinct</code>. Anything beyond that is when you
+      switch to <code>@Query</code>. Because the name is the query, <b>a typo is a startup failure, and a rename of a
+      field breaks every method that mentions it</b> &mdash; which is exactly why the errors are loud.
+    </div>
+  </article>
+
+  <!-- 10.3 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">10.3</span>
+      <h3 class="entry-title">The adapter was not a Spring bean, so nothing could inject it</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">repository/jpa/JpaNotificationRepository.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">public class JpaNotificationRepository implements NotificationRepository {   // no annotation</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@Repository
+public class JpaNotificationRepository implements NotificationRepository {</pre>
+
+    <p class="why"><b>Why it was wrong:</b> Spring only manages classes it knows about. Without a stereotype annotation
+    this class is invisible, so <code>NotificationService</code> and <code>NotificationEngine</code> &mdash; both of which
+    need a <code>NotificationRepository</code> &mdash; would fail with <i>"no qualifying bean of type
+    NotificationRepository available"</i>. It compiled because <code>implements</code> is a Java relationship; being a
+    bean is a Spring one, and the two are unrelated.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: why <code>@Repository</code> and not <code>@Component</code> here</div>
+      Both register the bean. <code>@Repository</code> adds one real behaviour: <b>persistence exception
+      translation</b>. Spring wraps the bean so vendor-specific errors (a Hibernate
+      <code>ConstraintViolationException</code>, a raw MySQL <code>SQLException</code>) become Spring's own
+      <code>DataAccessException</code> family &mdash; which is exactly why catching
+      <code>DataIntegrityViolationException</code> in <code>save()</code> works and stays database-independent.
+    </div>
+  </article>
+
+  <!-- 10.4 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">10.4</span>
+      <h3 class="entry-title">The wrong <code>@Transactional</code>, and entity constructors left wide open</h3>
+      <span class="chip style">Cleanup</span>
+    </div>
+    <div class="file">repository/jpa/SpringDataNotificationRepository.java &middot; entity/NotificationEntity.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">import jakarta.transaction.Transactional;      // works, but limited
+
+@AllArgsConstructor      // public: anyone can build a half-valid entity
+@NoArgsConstructor       // public: only JPA should use this one
+public class NotificationEntity { ... }</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">import org.springframework.transaction.annotation.Transactional;
+
+@AllArgsConstructor(access = AccessLevel.PRIVATE)      // for @Builder only
+@NoArgsConstructor(access = AccessLevel.PROTECTED)     // for JPA only</pre>
+
+    <p class="why"><b>Why it matters:</b> <code>jakarta.transaction.Transactional</code> does work in Spring, but the
+    Spring annotation supports <code>readOnly</code>, <code>propagation</code>, <code>isolation</code>,
+    <code>timeout</code> and rollback rules. Mixing both in one project is the same auto-import trap as round 9
+    (entry 9.1) &mdash; the collision list there lists this exact pair. On the entity, <code>@Builder</code> is the
+    intended way in and JPA needs the no-args constructor only through reflection, so neither belongs in the public API.</p>
+  </article>
+
+  <!-- 10.5 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">10.5</span>
+      <h3 class="entry-title">What was already right</h3>
+      <span class="chip style">Keep doing this</span>
+    </div>
+    <div class="file">entity, mapper, repository/jpa</div>
+
+    <ul class="tight">
+      <li><b><code>saveAndFlush</code>, not <code>save</code></b>, so a unique-constraint violation is thrown inside
+      <code>save()</code> where it can be translated, instead of surfacing later at commit.</li>
+      <li><b>The duplicate check is conditional:</b> it only converts to
+      <code>DuplicateIdempotencyKeyException</code> when the key really exists, and rethrows otherwise. That means a
+      different constraint failure is never disguised as a duplicate.</li>
+      <li><b><code>updateStatus</code> checks the row count</b> and throws <code>NotificationNotFoundException</code> on
+      zero. Verified by test.</li>
+      <li><b><code>EnumType.STRING</code> plus <code>columnDefinition = "varchar(16)"</code></b> on all three enums: no
+      ordinal fragility, and no MySQL <code>ENUM</code> column that <code>ddl-auto</code> could never alter.</li>
+      <li><b>The unique constraint and the user index are declared on the entity</b>, so the schema is generated with the
+      protection the idempotency logic depends on. The duplicate-key test proves it.</li>
+      <li><b>Null idempotency keys are allowed</b> &mdash; two rows with no key coexist, because MySQL and H2 permit many
+      NULLs in a unique column. Verified.</li>
+      <li><b>The mapper is pure field copying in both directions</b>, and <code>toDomain</code> is the first real use of
+      <code>Notification.restore()</code>. A save-then-load round trip compared every field and matched exactly.</li>
+      <li><b>No JPA type escapes the package.</b> The adapter returns domain objects and <code>Optional</code>s, so the
+      service still knows nothing about Hibernate.</li>
+    </ul>
+
+    <div class="concept">
+      <div class="concept-head">Concept: why persistence needs a real database in tests</div>
+      Everything in this round compiled, and a mocked repository test would have passed too &mdash; mocks cannot fail on a
+      bad JPQL query, a misnamed derived method or a missing annotation. What caught all three was
+      <code>@DataJpaTest</code>: it starts the JPA part of Spring against in-memory H2, so the entity mapping, the
+      generated schema, the constraints and every query are exercised for real.
+      <br><br>
+      <b>The rule:</b> mock what you own, use the real thing for what you do not. Business logic &rarr; mocks are fine.
+      Persistence, JSON serialisation, framework wiring &rarr; run the real machinery. (For maximum fidelity the next step
+      up is Testcontainers with real MySQL, since H2 does not reproduce every MySQL behaviour.)
+    </div>
+  </article>
+</section>
+
+<!-- ============================ ROUND 11 ============================ -->
+<section class="round" id="round-11">
+  <div class="round-head">
+    <h2>Round 11 &middot; controller and config &mdash; the app runs</h2>
+    <span class="round-meta">29 Sep 2026 &middot; 3 bugs &middot; verified end to end with 3 HTTP tests</span>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <b>Last two classes, and the application now works end to end.</b> A real HTTP POST goes in, a notification comes
+    back as <code>SENT</code> with the decorated text, reading it back works, and a repeated idempotency key returns the
+    original instead of sending twice. Three bugs on the way: one brace, one missing annotation, one URL collision.
+  </div>
+
+  <!-- 11.1 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">11.1</span>
+      <h3 class="entry-title">A method left outside the class: "class, interface, enum, or record expected"</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">config/NotificationConfig.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">    @Bean
+    public Clock clock(...) {
+        return Clock.system(ZoneId.of(timeZone));
+    }
+}                                   &lt;-- this closed the CLASS, not just the method
+
+@Bean
+public RetryPolicy retryPolicy(...) {   // floating at file level
+    ...
+}</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">    @Bean
+    public Clock clock(...) { ... }
+
+    @Bean
+    public RetryPolicy retryPolicy(...) { ... }
+}                                   &lt;-- the class ends here, after both beans</pre>
+
+    <p class="why"><b>Why it was wrong:</b> only a class, interface, enum or record may sit at the top level of a
+    <code>.java</code> file &mdash; never a method. One misplaced brace produced <b>six</b> errors, because after losing
+    its place the parser complains about every following line.
+    <br><br>
+    <b>How to debug this fast:</b> only the <i>first</i> error location matters; the rest are fallout. The visual tell
+    was the indentation: <code>@Bean</code> sat at column 0 instead of column 4. In IntelliJ, clicking a brace
+    highlights its partner, and <b>Ctrl+Alt+L</b> reformats the file, which makes a stray brace obvious immediately.</p>
+  </article>
+
+  <!-- 11.2 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">11.2</span>
+      <h3 class="entry-title">The POST endpoint had no <code>@PostMapping</code></h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">controller/NotificationController.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">// no annotation at all
+public ResponseEntity&lt;NotificationResponse&gt; send(@RequestBody NotificationRequest request){</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@PostMapping
+public ResponseEntity&lt;NotificationResponse&gt; send(@RequestBody NotificationRequest request){</pre>
+
+    <p class="why"><b>Why it was wrong:</b> a <code>@RestController</code> is still an ordinary class; only the mapping
+    annotations turn a method into an endpoint. Without one, the method is simply never called, and
+    <code>POST /api/v1/notifications</code> returns <b>405 Method Not Allowed</b> &mdash; the most confusing possible
+    answer, because the URL clearly exists thanks to the two GET methods. The two GETs were annotated, which is what made
+    the gap easy to miss.</p>
+  </article>
+
+  <!-- 11.3 -->
+  <article class="entry">
+    <div class="entry-head">
+      <span class="entry-id">11.3</span>
+      <h3 class="entry-title">Two endpoints claiming the same URL pattern</h3>
+      <span class="chip blocker">Blocker</span>
+    </div>
+    <div class="file">controller/NotificationController.java</div>
+
+    <div class="label bad">What I wrote</div>
+<pre class="bad">@GetMapping("/{notificationId}")
+public NotificationResponse getById(@PathVariable String notificationId){ ... }
+
+@GetMapping("/{userId}")          // the SAME pattern: /api/v1/notifications/{anything}
+public List&lt;NotificationResponse&gt; getByUserId(@PathVariable String userId){ ... }</pre>
+
+    <div class="label good">Corrected</div>
+<pre class="good">@GetMapping(params = "userId")    // /api/v1/notifications?userId=user-42
+public List&lt;NotificationResponse&gt; getByUserId(@RequestParam String userId){ ... }</pre>
+
+    <p class="why"><b>Why it was wrong:</b> the variable <i>name</i> in a path is just a label &mdash;
+    <code>/{notificationId}</code> and <code>/{userId}</code> are the identical pattern
+    <code>/api/v1/notifications/&lt;one segment&gt;</code>. Spring cannot tell which method a request means and throws:
+<pre class="bad">IllegalStateException: Ambiguous handler methods mapped for '/api/v1/notifications/does-not-exist':
+    {NotificationController.getById(String), NotificationController.getByUserId(String)}</pre>
+    <b>The design point, not just the fix:</b> these are two different kinds of lookup.
+    <code>/notifications/{id}</code> identifies <i>one specific resource</i>; listing a user's notifications is a
+    <i>filter over the collection</i>, which in REST is a query parameter: <code>/notifications?userId=user-42</code>.
+    Getting that distinction right also removes the collision.</p>
+
+    <div class="concept">
+      <div class="concept-head">Concept: <code>@PathVariable</code> vs <code>@RequestParam</code></div>
+      <table>
+        <tr><th></th><th><code>@PathVariable</code></th><th><code>@RequestParam</code></th></tr>
+        <tr><td>Looks like</td><td><code>/notifications/7f3a-9c21</code></td><td><code>/notifications?userId=user-42</code></td></tr>
+        <tr><td>Means</td><td>this one resource</td><td>a filter, a search, a page</td></tr>
+        <tr><td>Required?</td><td>always part of the URL</td><td>optional by default (<code>required=false</code>, <code>defaultValue</code>)</td></tr>
+        <tr><td>Typical use</td><td>ids</td><td><code>?status=FAILED&amp;page=2&amp;size=20</code></td></tr>
+      </table>
+      <code>@GetMapping(params = "userId")</code> is the extra trick here: it says "this method handles
+      <code>GET /api/v1/notifications</code> <i>only when</i> a <code>userId</code> parameter is present", which lets one
+      collection URL serve several purposes without any ambiguity.
+    </div>
+  </article>
+
+  <!-- 11.4 -->
+  <article class="entry ok">
+    <div class="entry-head">
+      <span class="entry-id">11.4</span>
+      <h3 class="entry-title">What was already right, and what the end-to-end test proved</h3>
+      <span class="chip style">Milestone</span>
+    </div>
+    <div class="file">controller, config, application.yml</div>
+
+    <ul class="tight">
+      <li><b>201 Created with a <code>Location</code> header</b> built from the actual request URI: the textbook REST
+      answer for "I made you a resource, here is where it lives".</li>
+      <li><b>No <code>@Valid</code> on the request body</b>, because the service validates. One validation path, one error
+      format, and future Kafka consumers get the same checks.</li>
+      <li><b>Never returns the domain object</b>: every response goes through <code>NotificationResponse.from(...)</code>.</li>
+      <li><b>The controller holds no logic</b> &mdash; convert, delegate, convert back. Three methods, one line of real
+      work each.</li>
+      <li><b><code>@Value</code> defaults</b> (<code>${notification.retry.max-attempts:3}</code>) mean the app still
+      starts if a property is missing, and Spring converts <code>"500ms"</code> straight into a <code>Duration</code>.</li>
+    </ul>
+
+    <p class="why" style="margin-top:14px"><b>What the end-to-end test actually exercised</b> &mdash; one HTTP POST, and
+    every layer of eleven rounds of work ran in order:</p>
+<pre class="good">POST /api/v1/notifications  {"userId":"user-42", ..., "idempotencyKey":"txn-9001:debit"}
+
+  -&gt; controller  : JSON parsed into the record
+  -&gt; service     : validated, idempotency checked, decorators applied
+  -&gt; decorators  : body + "Time: ..." + "- Enterprise Digital Bank ..."
+  -&gt; repository  : row saved to H2 as CREATED, then QUEUED
+  -&gt; observer    : NOTIFICATION_CREATED to audit, logging, metrics
+  -&gt; preferences : channel allowed
+  -&gt; engine      : PROCESSING -&gt; resolver picks SmsNotificationChannel -&gt; sent -&gt; SENT
+  -&gt; observer    : NOTIFICATION_SENT
+  &lt;- 201 Created, Location header, status "SENT"
+
+GET  /api/v1/notifications/{id}         -&gt; 200, the same notification
+GET  /api/v1/notifications?userId=...   -&gt; 200, a list containing it
+POST the same idempotency key again     -&gt; the ORIGINAL notification id, nothing sent twice
+POST an invalid body                    -&gt; 400 with an "errors" array
+GET  an unknown id                      -&gt; 404</pre>
+
+    <div class="concept">
+      <div class="concept-head">Concept: the three levels of test, and what each one can catch</div>
+      <table>
+        <tr><th>Level</th><th>Speed</th><th>Catches</th><th>Misses</th></tr>
+        <tr><td>Unit (mocks/fakes)</td><td>milliseconds</td><td>logic, branches, edge cases</td><td>wiring, SQL, JSON, URLs</td></tr>
+        <tr><td>Slice (<code>@DataJpaTest</code>)</td><td>seconds</td><td>queries, mapping, constraints</td><td>web layer, full wiring</td></tr>
+        <tr><td>End to end (<code>@SpringBootTest</code> + MockMvc)</td><td>~15 seconds</td><td>bean wiring, URL mapping, serialisation, status codes</td><td>specific edge cases (too slow to enumerate)</td></tr>
+      </table>
+      Rounds 8 and 9 were caught by unit tests, round 10 by a slice test, and this round's ambiguous mapping only by the
+      end-to-end test. <b>You need all three, in that proportion:</b> many fast unit tests, a few slice tests, one or two
+      end-to-end tests that prove the whole thing is plugged together.
+    </div>
+  </article>
+</section>
+
 <!-- ROUND-INSERT-POINT: new rounds are added here -->
 
 <!-- ============================ CONCEPT INDEX ============================ -->
@@ -1920,6 +2293,16 @@ Optional&lt;Notification&gt; findById(String notificationId);</pre>
         <tr><td>Java <code>record</code></td><td>Immutable data carrier with generated accessors; ideal for DTOs</td><td>1.9</td></tr>
         <tr><td>Jackson visibility</td><td>JSON is built from public getters, not from fields</td><td>1.9</td></tr>
         <tr><td>Static factory + private constructor</td><td><code>retryable(...)</code> reads better than <code>new X(..., true, ...)</code></td><td>1.10</td></tr>
+        <tr><td>Brace errors</td><td>"class, interface, enum, or record expected" = a method escaped the class</td><td>11.1</td></tr>
+        <tr><td>Mapping annotations</td><td>A method in a @RestController is not an endpoint until it is mapped</td><td>11.2</td></tr>
+        <tr><td>Ambiguous URL patterns</td><td><code>/{a}</code> and <code>/{b}</code> are the same pattern; names are only labels</td><td>11.3</td></tr>
+        <tr><td><code>@PathVariable</code> vs <code>@RequestParam</code></td><td>One resource vs a filter over the collection</td><td>11.3</td></tr>
+        <tr><td>The three test levels</td><td>Unit, slice and end-to-end each catch a different class of bug</td><td>11.4</td></tr>
+        <tr><td>JPQL vs SQL</td><td>JPQL uses entity and <b>field</b> names; native SQL uses table and column names</td><td>10.1</td></tr>
+        <tr><td>Derived query names</td><td>The method name is the query: <code>findBy</code>, <code>existsBy</code>, <code>countBy</code></td><td>10.2</td></tr>
+        <tr><td><code>@Repository</code></td><td>Registers the bean <i>and</i> translates vendor errors into DataAccessException</td><td>10.3</td></tr>
+        <tr><td>Startup-time validation</td><td>Spring Data checks queries and beans at boot, long after compilation</td><td>10.1, 10.2</td></tr>
+        <tr><td>Mock vs real database</td><td>Mocks cannot catch bad JPQL, wrong method names or missing annotations</td><td>10.5</td></tr>
         <tr><td>Auto-import collisions</td><td>Same simple name in several packages: <code>Validator</code>, <code>Transactional</code>, <code>Order</code></td><td>9.1</td></tr>
         <tr><td>Same-type argument swap</td><td><code>getNotificationId()</code> vs <code>getUserId()</code>: compiles, silently wrong</td><td>9.2, 1.4</td></tr>
         <tr><td>Method visibility by caller</td><td>If another package must call it, it is <code>public</code></td><td>9.3, 2.1</td></tr>
@@ -2001,6 +2384,12 @@ Optional&lt;Notification&gt; findById(String notificationId);</pre>
         <tr><td>Is the same idea spelled the same way everywhere (<code>isRetryable</code> in both classes)?</td><td>3.1</td></tr>
         <tr><td>Does the class have two ways to do the same thing (two loggers, two constructors)?</td><td>6.2</td></tr>
         <tr><td>Removed unused imports? (Ctrl+Alt+O in IntelliJ)</td><td>6.2, 7.1</td></tr>
+        <tr><td>Does every controller method have a mapping annotation?</td><td>11.2</td></tr>
+        <tr><td>Do any two endpoints share a URL pattern (path-variable names do not distinguish them)?</td><td>11.3</td></tr>
+        <tr><td>Do my JPQL queries use <b>field</b> names (<code>notificationStatus</code>), not column names?</td><td>10.1</td></tr>
+        <tr><td>Do derived query methods start with a real prefix (<code>existsBy</code>, not <code>existBy</code>)?</td><td>10.2</td></tr>
+        <tr><td>Does every class Spring must inject carry a stereotype annotation?</td><td>10.3</td></tr>
+        <tr><td>Did I actually start the context (or a test slice), not just compile?</td><td>10.1-10.3</td></tr>
         <tr><td>Did I check every auto-imported class is from the package I expected?</td><td>9.1</td></tr>
         <tr><td>When a method takes two Strings, did I pass the right one (userId vs notificationId)?</td><td>9.2, 1.4</td></tr>
         <tr><td>Is every method the outside world calls <code>public</code>?</td><td>9.3, 2.1</td></tr>

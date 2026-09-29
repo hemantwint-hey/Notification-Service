@@ -1,6 +1,7 @@
 package org.example.notificationservice.entity;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -8,13 +9,12 @@ import lombok.NoArgsConstructor;
 import org.example.notificationservice.enums.NotificationPriority;
 import org.example.notificationservice.enums.NotificationStatus;
 import org.example.notificationservice.enums.NotificationType;
-import org.hibernate.annotations.Collate;
 
 import java.time.Instant;
 
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "notification",
         indexes = @Index(name = "idx_notification_user_id",columnList = "user_id"),
         uniqueConstraints  = @UniqueConstraint(name = "uk_notification_idempotency_key",columnNames = "idempotency_key"))

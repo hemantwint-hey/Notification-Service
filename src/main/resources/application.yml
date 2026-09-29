@@ -38,3 +38,13 @@ spring:
           auth: true
           starttls:
             enable: true
+
+notification:
+  retry:
+    max-attempts: 3
+    initial-delay: 500ms
+    multiplier: 2.0
+    max-delay: 5s
+  content:
+    time-zone: UTC
+    signature: "- Enterprise Digital Bank. Never share your OTP or password with anyone."

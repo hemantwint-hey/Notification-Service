@@ -1,6 +1,6 @@
 package org.example.notificationservice.repository.jpa;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.example.notificationservice.entity.NotificationEntity;
 import org.example.notificationservice.enums.NotificationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,11 +11,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 public interface SpringDataNotificationRepository extends JpaRepository<NotificationEntity, String> {
     Optional<NotificationEntity> findByIdempotencyKey(String idempotencyKey);
-    boolean existByIdempotencyKey(String idempotencyKey);
+    boolean existsByIdempotencyKey(String idempotencyKey);
     List<NotificationEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 
     @Transactional
@@ -23,7 +22,7 @@ public interface SpringDataNotificationRepository extends JpaRepository<Notifica
     @Query(""" 
 
             update NotificationEntity n
-                                       set n.status = :status, n.updatedAt = :updatedAt
+                                       set n.notificationStatus = :status, n.updatedAt = :updatedAt
                                        where n.notificationId = :notificationId
 """)
     int  updateStatus(@Param("notificationId")String notificationId,
